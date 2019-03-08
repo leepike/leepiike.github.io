@@ -1,7 +1,7 @@
 {-
 Lee Pike <leepike @ galois . com> (remove spaces)
 Discrete-event type simulator for the Biphase Mark Protocol.
-See http://www.cs.indiana.edu/~lepike/pub_pages/qc-biphase.html and the associated paper.
+See https://leepike.github.io/pub_pages/qc-biphase.html and the associated paper.
 BSD3 License.
 -}
 

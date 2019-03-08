@@ -5,7 +5,7 @@
 %% SAL 2.4 <http://fm.csl.sri.com/>                                         %%
 %%                                                                          %%
 %% Refinment of the finite-state 8N1 specification with shift registers.    %%
-%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html  %%
+%% Please see <https://leepike.github.io/pub_pages/refinement.html  %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 uart_reg: CONTEXT = 

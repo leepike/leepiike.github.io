@@ -6,7 +6,7 @@
 %%                                                                          %%
 %% Fully parameterized specification and refinement of the Biphase          %%
 %% Mark Protocol.                                                           %%
-%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/bmp-jrnl.html    %%
+%% Please see <https://leepike.github.io/pub_pages/bmp-jrnl.html    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 biphaseJrnl: CONTEXT =

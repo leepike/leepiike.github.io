@@ -6,7 +6,7 @@
 %%                                                                          %%
 %% Specification and verification of an untimed 8N1 decoder with shift      %%
 %% registers.                                                               %%
-%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html> %%
+%% Please see <https://leepike.github.io/pub_pages/refinement.html> %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 untimeduart_reg: CONTEXT = 

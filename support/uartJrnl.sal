@@ -5,7 +5,7 @@
 %% SAL 3.0 <http://fm.csl.sri.com/>                                         %%
 %%                                                                          %%
 %% Fully parameterized specification and refinement of an 8N1 protocol.     %%
-%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/BMP-jrnl.html    %%
+%% Please see <https://leepike.github.io/pub_pages/BMP-jrnl.html    %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 uartJrnl: CONTEXT = 

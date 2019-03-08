@@ -8,7 +8,7 @@ $$$time_triggered_system2.pvs
 %% Accompanies the paper, "Modeling Time-Triggered Protocols and Verifying Their
 %% Real-Time Schedules," (FMCAD, 2007).
 
-%% <http://www.cs.indiana.edu/~lepike/pub_pages/fmcad.html>
+%% <https://leepike.github.io/pub_pages/fmcad.html>
 %% PVS 4.0
 
 time_triggered_system2: THEORY
@@ -3525,7 +3525,7 @@ $$$time_triggered_imp.pvs
 %% Accompanies the paper, "Modeling Time-Triggered Protocols and Verifying Their
 %% Real-Time Schedules," (FMCAD, 2007).
 
-%% <http://www.cs.indiana.edu/~lepike/pub_pages/fmcad.html>
+%% <https://leepike.github.io/pub_pages/fmcad.html>
 %% PVS 4.0
 
 time_triggered_imp: THEORY

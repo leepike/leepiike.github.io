@@ -1,5 +1,5 @@
 # README for beautifHOL, a HOL prettyprinter
-# Based on the paper found at http://www.cs.indiana.edu/~lepike/pub_pages/pphol.html
+# Based on the paper found at https://leepike.github.io/pub_pages/pphol.html
 # Lee Pike <lee-pike-@-gma-il-.com> (remove dashes)
 # Jan 5, 2009
 # Copyright 2008
@@ -21,7 +21,7 @@ This README contains the following sections:
 This is a pretty-printer for higher-order logic (HOL).  It reads in a formula
 and outputs it to standard out.  More information about the pretty-printer can
 be found in the paper, "How to Pretty-Print a Long Formula"
-<http://www.cs.indiana.edu/~lepike/pubs/pike-holpp.pdf>.
+<https://leepike.github.io/pubs/pike-holpp.pdf>.
 
 ==LICENSE==
 
@@ -63,7 +63,7 @@ will render all the example formulas.
 ==MODIFYING THE PROGRAM==
 
 The syntax of the current input language is documented in
-<http://www.cs.indiana.edu/~lepike/pub_pages/docHOL.pdf>.
+<https://leepike.github.io/pub_pages/docHOL.pdf>.
 
 To modify the input language to use with other variants of HOL, you will need
 the BNF Converter (BNFC).  BNFC is an GPL-licensed that generates a

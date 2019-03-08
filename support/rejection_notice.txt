@@ -3,7 +3,7 @@
 ** The following is a PARODY ONLY of rejection letters to authors...
 ** ...Wouldn't it be nice to turn the tables some time and reject a conference?
 **
-** Lee Pike <http://www.cs.indiana.edu/~lepike/>
+** Lee Pike <https://leepike.github.io/>
 **
 *************
 

@@ -6,7 +6,7 @@
 %%                                                                          %%
 %% Fully parameterized specification and refinment of the Biphase Mark      %%
 %% Protocol.                                                                %%
-%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html> %%
+%% Please see <https://leepike.github.io/pub_pages/refinement.html> %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 biphase: CONTEXT =
