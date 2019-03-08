@@ -1,0 +1,229 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown |@| cs.indiana.edu>         %%
+%% Lee Pike, Galois Connections, Inc. <leepike |@| galois.com>              %%
+%%                                                                          %%
+%% SAL 2.4 <http://fm.csl.sri.com/>                                         %%
+%%                                                                          %%
+%% Fully parameterized specification and refinment of the Biphase Mark      %%
+%% Protocol.                                                                %%
+%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html> %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+biphase: CONTEXT =
+
+BEGIN
+
+  TIME : TYPE = REAL;
+
+  TPERIOD      :     { x : REAL | 0 < x };
+  TSETTLE      :     { x : REAL | 0 <= x AND x < TPERIOD };
+  TSTABLE      :     TIME = TPERIOD - TSETTLE;
+
+  RSCANMIN :  { x: TIME | 0 < x }; 
+  RSCANMAX :  { x: TIME | RSCANMIN <= x AND x < TPERIOD - TSETTLE};
+  RSAMPMIN :  { x : TIME | TPERIOD + TSETTLE < x };
+  RSAMPMAX :  { x : TIME | RSAMPMIN <= x AND x < 2 * TPERIOD - TSETTLE - RSCANMAX };
+
+STATE : TYPE = [0..1];
+
+time(t1 : TIME, t2: TIME): TIME = 
+  IF t1 <= t2 THEN t1 ELSE t2 ENDIF;
+
+  tclock : MODULE =
+    BEGIN
+
+       INPUT  rclk   : TIME
+       OUTPUT tclk   : TIME
+       OUTPUT ttick  : BOOLEAN
+  
+    INITIALIZATION
+
+       tclk  IN {x : TIME | 0 <= x AND x <= TSTABLE};
+
+    TRANSITION
+           [
+              tclk = time(rclk, tclk) -->
+                     tclk' = tclk + TPERIOD;
+                     ttick' = NOT ttick;
+           ]
+     END;
+
+  tenv : MODULE = 
+     BEGIN
+       INPUT   tready : BOOLEAN
+       OUTPUT  tbit   : BOOLEAN
+
+       INITIALIZATION
+
+               tbit = TRUE;
+
+       TRANSITION
+       [
+           tready --> tbit' IN {TRUE, FALSE};
+       []  ELSE   --> tbit' = tbit;
+       ]
+     END;
+
+  tenc : MODULE = 
+     BEGIN
+       OUTPUT tdata       : BOOLEAN
+       OUTPUT tstate      : STATE
+       OUTPUT tready      : BOOLEAN
+       INPUT  tbit        : BOOLEAN
+       LOCAL  ttoggle     : BOOLEAN
+
+       INITIALIZATION
+
+         tdata  = TRUE;
+         tstate = 1;
+
+       DEFINITION
+
+         tready = tstate = 1;
+         ttoggle = NOT tdata;
+
+       TRANSITION
+       [
+          tstate = 1 --> 
+       [] tstate = 1 --> 
+                       tdata' = ttoggle;
+                       tstate' = 0;
+       [] tstate = 0 --> 
+                       tdata' = IF tbit THEN ttoggle ELSE tdata ENDIF;
+                       tstate' = 1;
+       ]
+  END;
+
+  tx : MODULE = tclock || tenc || tenv;
+
+  timeout (min : TIME, max : TIME) : [TIME -> BOOLEAN]  = 
+                  { x : TIME | min <= x AND x <=  max};
+
+
+  rclock : MODULE  =
+         BEGIN
+          INPUT  tclk     : TIME
+          INPUT  rstate   : STATE
+          OUTPUT rclk     : TIME
+          OUTPUT rtick    : BOOLEAN
+
+         INITIALIZATION
+
+             rclk IN { x : TIME | 0 <= x AND x < RSCANMAX };   
+
+         TRANSITION
+         [
+          rclk = time(rclk, tclk) --> 
+                     rclk' IN IF (rstate' = 1) THEN
+                        timeout(rclk + RSCANMIN, rclk + RSCANMAX)  
+                      ELSE
+                         timeout(rclk + RSAMPMIN, rclk + RSAMPMAX)
+                      ENDIF;
+                  rtick' = NOT rtick;
+         ]
+         END;
+
+  rdec  : MODULE = 
+         BEGIN
+           INPUT  tdata     : BOOLEAN
+           OUTPUT rdata     : BOOLEAN
+           OUTPUT rstate    : [0..1]
+           OUTPUT rbit      : BOOLEAN
+
+       INITIALIZATION
+
+         rstate  = 1;
+         rdata = TRUE;
+         rbit  = TRUE;
+
+       TRANSITION
+          [
+             rstate = 0  -->  
+                    rdata' IN {FALSE, TRUE};
+                    rbit' = rdata /= rdata';
+                    rstate' = 1;
+          [] rstate = 1  -->
+                   rdata' = NOT rdata;
+                   rstate' = IF (rdata = rdata') THEN 1 ELSE 0 ENDIF;
+          [] rstate = 1 --> 
+          ]
+       END;
+
+constraint : MODULE =
+  BEGIN
+     INPUT  tclk     : TIME
+     INPUT  rclk     : TIME
+     INPUT rdata   : BOOLEAN
+     INPUT tdata   : BOOLEAN
+     INPUT ttick    : BOOLEAN
+     INPUT rtick   : BOOLEAN
+     OUTPUT stable   : BOOLEAN
+     LOCAL changing : BOOLEAN
+    
+         DEFINITION
+   
+             stable = NOT changing OR tclk - rclk < TSTABLE;
+
+	 INITIALIZATION
+
+             changing = FALSE	  
+
+         TRANSITION
+         [
+	    rtick /= rtick' AND (stable => rdata' = tdata) -->
+         [] 
+	    ttick /= ttick' --> changing' = (tdata' /= tdata)
+         ]
+        END;
+
+     rx : MODULE = rclock || rdec;
+
+     system : MODULE = (rx [] tx) || constraint;
+
+
+% sal-inf-bmc -d 1 -i biphase.sal l1
+   l1 : LEMMA system |- G(tclk <= (rclk + TPERIOD) OR stable);
+
+% sal-inf-bmc -d 1 -i biphase.sal l2
+   l2 : LEMMA system |- G(rclk <= tclk + RSAMPMAX OR 
+                          rclk <= tclk + RSCANMAX);
+
+% sal-inf-bmc -d 4 -i -l l1 -l l2 biphase.sal t0
+  t0:  THEOREM system |- G(
+         ((rstate=1 AND tstate=1) AND
+          (rclk <= tclk + RSCANMAX) AND
+          (tclk <= rclk + TPERIOD) AND
+          (rdata = tdata) AND
+          stable)
+         OR
+         ((rstate=0 AND tstate=1) AND
+          (rclk <= tclk) AND
+          stable)
+         OR
+         ((rstate=1 AND tstate=0) AND
+          (rclk <= tclk) AND
+          (rdata /= tdata) AND
+          changing)
+         OR
+         ((rstate=0 AND tstate=0) AND
+          (tclk <= rclk) AND
+          (rclk <= tclk + RSAMPMAX) AND
+          (rdata = tdata) AND
+          changing AND
+          stable));
+
+% -- Refinement Proofs --
+
+% sal-inf-bmc -d 1 -i -l l1 -l l2 biphase.sal Const_Thm
+   Const_Thm : THEOREM system |- G((tstate /= 1 OR rstate /= 1) => stable);
+
+% sal-inf-bmc -d 1 -i -l t0 -l l1 -l l2 biphase.sal Clock_Thm1
+% sal-inf-bmc -d 3 -i -l t0 biphase.sal Clock_Thm2
+
+  Clock_Thm1 : THEOREM system |- G(rclk = time(rclk,tclk) =>
+                                   (rstate /= tstate OR
+				   (tstate = 1 AND tstate = 1)));
+
+  Clock_Thm2 : THEOREM system |- G(tclk = time(tclk,rclk) => rstate = tstate);
+
+END

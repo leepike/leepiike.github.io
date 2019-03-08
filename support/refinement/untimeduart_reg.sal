@@ -1,0 +1,153 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown |@| cs.indiana.edu>         %%
+%% Lee Pike, Galois Connections, Inc. <leepike |@| galois.com>              %%
+%%                                                                          %%
+%% SAL 2.4 <http://fm.csl.sri.com/>                                         %%
+%%                                                                          %%
+%% Specification and verification of an untimed 8N1 decoder with shift      %%
+%% registers.                                                               %%
+%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html> %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+untimeduart_reg: CONTEXT = 
+
+BEGIN
+
+
+STATE : TYPE = [0..9];
+REG : TYPE = ARRAY [0..7] OF BOOLEAN;
+
+%---------------------
+%  
+% Transmitter
+%
+%---------------------
+
+  tclock : MODULE =
+    BEGIN
+       INPUT rstate : STATE
+       INPUT tstate : STATE
+
+    TRANSITION
+           [
+		tstate = rstate --> 
+           ]
+     END;
+
+tenv : MODULE = 
+  BEGIN
+    INPUT tstate : STATE
+    LOCAL treg : REG
+    OUTPUT  tbit   : BOOLEAN
+    TRANSITION
+    [
+        tstate = 9 --> treg' IN {reg: REG | TRUE}
+     [] tstate < 8 --> tbit' = treg[7-tstate]
+     [] tstate = 8 -->
+    ]
+  END;
+
+   tenc : MODULE =
+     BEGIN
+       OUTPUT  tdata  : BOOLEAN
+       OUTPUT  tstate : STATE
+       INPUT   tbit   : BOOLEAN
+
+       INITIALIZATION
+
+         tstate = 9;
+         tdata  =  (tstate = 9) OR tbit;
+
+       TRANSITION
+       [
+          tstate = 9  --> tstate' = IF tbit' THEN 9 ELSE 0 ENDIF;
+       [] tstate < 9  --> tstate' = tstate + 1;
+       ]
+  END;
+
+  ut_tx : MODULE = tclock || tenc || tenv;
+
+  rclock : MODULE  =
+         BEGIN
+           INPUT tstate : STATE
+           INPUT rstate : STATE
+
+         TRANSITION
+         [
+		rstate /= tstate OR tstate = 9 -->
+         ]
+  END;
+
+  rdec : MODULE =
+     BEGIN
+       INPUT  tdata  : BOOLEAN
+       OUTPUT rstate : STATE
+       OUTPUT rbit   : BOOLEAN
+
+      INITIALIZATION
+  
+       rbit  = TRUE;
+       rstate = 9;
+       
+      TRANSITION
+         [
+            rstate  = 9                -->  
+         [] rstate  = 9  AND NOT tdata -->  rbit' = FALSE;
+  			                                    rstate' = 0;
+
+         [] rstate /= 9                -->  rbit' = tdata;
+   		                                      rstate' = rstate + 1;
+         ]
+       END;
+
+r_reg : MODULE = 
+  BEGIN
+    INPUT rbit : BOOLEAN
+    INPUT rstate : STATE
+    OUTPUT rreg : REG
+
+    INITIALIZATION
+   
+      rreg = [[i:[0..7]] FALSE]
+
+    TRANSITION
+    [
+        rstate < 8 --> 
+             rreg' = [[i:[0..7]] IF i=0 THEN rbit' 
+                                 ELSE rreg[i-1]
+                                 ENDIF]
+     [] ELSE -->
+    ]
+  END;
+
+     ut_rx : MODULE = rdec || rclock || r_reg;
+     system : MODULE = ut_rx [] ut_tx;
+
+% sal-smc untimeduart_reg.sal StateThm1
+StateThm1 :  THEOREM system |- G(rstate = tstate OR 
+				((rstate + 1) MOD 10) = tstate);
+
+% sal-smc untimeduart_reg.sal StateThm2
+StateThm2 :  THEOREM system |- G(FORALL (i : STATE) : 
+             (i = rstate AND i = tstate) => X((i = rstate AND (i + 1) MOD 10 = tstate)
+                                          OR (i = rstate AND i = tstate AND i = 9)));
+
+% sal-smc untimeduart_reg.sal StateThm3
+StateThm3 :  THEOREM system |- G(FORALL (i : STATE) : 
+               (i = rstate AND (i + 1) MOD 10 = tstate) => 
+                   X(   ((i + 1) MOD 10 = rstate AND (i + 1) MOD 10 = tstate)
+                     OR (i = 9 AND i = rstate AND 0 = tstate)));
+
+
+% sal-smc untimeduart_reg.sal Thm
+Thm :  THEOREM system |- G(tstate = rstate AND rstate /= 9 => rbit = tbit);
+
+% sal-smc untimeduart_reg.sal Untimeduart_Reg_Thm2
+   Untimeduart_Reg_Thm2 :  THEOREM system |- G(rstate = 8 => rreg = treg);
+
+% sal-smc untimeduart_reg.sal Liveness
+Liveness: THEOREM system |- G(F(rstate /= 9) => 
+                              F(tstate = 9 AND rstate = 9));
+                                
+                                
+END

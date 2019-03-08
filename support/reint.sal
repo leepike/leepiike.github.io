@@ -1,0 +1,793 @@
+% -----------------------------------------------------------
+% Lee Pike
+% leepike @ galois.com
+%
+% Compatible with SAL 2.3 & SAL 2.4
+% -----------------------------------------------------------
+reint: CONTEXT =
+BEGIN
+
+% --------------------------TYPES AND CONSTANTS -------------
+% The nonnegative reals.
+TIME            : TYPE = {x: REAL | 0 <= x};
+
+MODES           : TYPE = {pd_mode, fs_mode, sc_mode}; 
+CNTRL           : TYPE = {active, deactive};
+
+% --------------------------------------
+% IF THE NUMBER OF NODES ARE CHANGED, UPDATE THESE TYPES AND
+% CONSTANTS APPROPRIATELY.
+% The user must ensure that there are enough operational
+% nodes to ensure the majority property always holds 
+% (this requires the majority of nodes to be operational).
+
+% Number of abstract operational nodes.
+op_total        : NATURAL = 2; 
+% Number of abstract bad nodes.
+bad_total       : NATURAL = 1; 
+% Total number of abstract nodes.
+total           : NATURAL = op_total + bad_total; 
+% The set of all abstract nodes. 
+ALL_IDS         : TYPE = {x: [1..total] | x=1 OR x=2 OR x=3};
+ALL_CNT         : TYPE = {x: [0..total] |    x=0 OR x=1 
+                                          OR x=2 OR x=3};
+% The set of abstract operational nodes.       
+OP_IDS          : TYPE = {x: [1..op_total] | x=1 OR x=2};
+% Where the indexing of bad nodes starts.
+b_st            : NATURAL = op_total + 1; 
+% The set of abstract bad nodes. 
+BAD_IDS         : TYPE = {x: [b_st..total] | x=3}; 
+% --------------------------------------
+
+% The size of the seen variable in preliminary diagnosis.
+pd_see_top      : NATURAL = 3;
+% The set of possible seen vals in preliminary diagnosis. 
+PD_SEEN         : TYPE = {x: [0..pd_see_top] 
+                            |    x=0 OR x=1 OR x=2 
+                              OR x=pd_see_top};
+% The set of times at which abtract operational nodes send
+% echos.
+OP_ECHOS        : TYPE = ARRAY OP_IDS OF TIME; 
+% Each bad node has an array of times at which it echos.  
+% The array is as big as the number of times that echos 
+% can be seen in a mode.                      
+BAD_ECHO_ARRAY  : TYPE = ARRAY [1..pd_see_top] OF TIME; 
+% The set of echo arrays for the abstract bad nodes.
+BAD_ECHOS       : TYPE = ARRAY BAD_IDS OF BAD_ECHO_ARRAY;
+% The reintegrator's set of accusations of operational nodes. 
+OP_ACCS         : TYPE = ARRAY OP_IDS OF BOOLEAN; 
+% The reintegrator's set of accusations of bad nodes.
+BAD_ACCS        : TYPE = ARRAY BAD_IDS OF BOOLEAN; 
+% The reintegrator's record of how many times an operational
+% node has been seen in preliminary diagnosis.
+PD_OP_SEEN      : TYPE = ARRAY OP_IDS OF PD_SEEN; 
+% The reintegrator's record of how many times an bad node 
+% has been seen in preliminary diagnosis.
+PD_BAD_SEEN     : TYPE = ARRAY BAD_IDS OF PD_SEEN; 
+% maximum skew between operational nodes                         
+pi              : {t: TIME |  0 < t}; 
+% Length of synchronization frame.  Constrained by skew.  
+P               : {t: TIME | t > pi*(bad_total + 2)}; 
+% -----------------------------------------------------------
+
+
+
+% ------------------FUNCTIONS--------------------------------
+% Is the node id of an operational node?
+operational?(i: ALL_IDS): BOOLEAN = i <= op_total;
+
+% --------------------------------------
+% Functions for monitoring echos from faulty nodes in the
+% preliminary diagnosis mode.
+pd_bad_see_rec(bad_ecs: BAD_ECHO_ARRAY, ind: PD_SEEN, 
+               start: TIME, ending: TIME, seen: PD_SEEN)
+                 : PD_SEEN =
+  IF ind=0 THEN seen
+  ELSIF (bad_ecs[ind] > start AND bad_ecs[ind] <= ending) 
+    THEN pd_bad_see_rec(bad_ecs, ind-1, start, ending, seen+1) 
+    ELSE pd_bad_see_rec(bad_ecs, ind-1, start, ending, seen) ENDIF; 
+
+pd_bad_see(seen: PD_SEEN, bad_ecs: BAD_ECHO_ARRAY, 
+           start: TIME, ending: TIME): PD_SEEN =
+  IF      pd_bad_see_rec(bad_ecs, pd_see_top, start, ending, 0) 
+        + seen 
+     >= pd_see_top 
+  THEN pd_see_top 
+  ELSE   pd_bad_see_rec(bad_ecs, pd_see_top, start, ending, 0) 
+       + seen 
+  ENDIF; 
+
+pd_bad_echos(seen: PD_SEEN, bad_ec: BAD_ECHO_ARRAY, 
+             start: TIME, ending: TIME): PD_SEEN =
+  pd_bad_see(seen, bad_ec, start, ending);
+% --------------------------------------
+
+% Functions for monitoring echos from faulty nodes in the
+% preliminary diagnosis mode.
+pd_op_echos(seen: PD_SEEN, op_ec: TIME, 
+            start: TIME, ending: TIME): PD_SEEN =
+  IF (op_ec > start AND op_ec <= ending AND seen < pd_see_top)
+  THEN seen+1 ELSE seen ENDIF;
+
+% --------------------------------------
+% Functions for finding the last valid echo in the 
+% frame synchronization mode transitions.
+
+% No echos from eligible nodes within pi ticks.
+none_in_pi?(reint_to: TIME, op_echos: OP_ECHOS, 
+            bad_echos: BAD_ECHOS, fs_op_seen: OP_ACCS, 
+            fs_bad_seen: BAD_ACCS, op_accs: OP_ACCS, 
+            bad_accs: BAD_ACCS): BOOLEAN = 
+      (FORALL (i: OP_IDS):    
+            (    op_echos[i] > reint_to 
+             AND (NOT op_accs[i]) AND (NOT fs_op_seen[i]))
+         => op_echos[i] > pi+reint_to)
+  AND (FORALL (i: BAD_IDS):    
+            ((NOT bad_accs[i]) AND (NOT fs_bad_seen[i]))
+         => bad_echos[i][1] > pi+reint_to);
+
+% Defined as a predicate rather than a recursive function;
+% see Dutertre and Sorea's tech report for an explanation.
+% True at the time of the last eligible echo in pi ticks.
+last_in_pi?(t: TIME, reint_to: TIME, op_echos: OP_ECHOS, 
+            bad_echos: BAD_ECHOS, fs_op_seen: OP_ACCS, 
+            fs_bad_seen: BAD_ACCS, op_accs: OP_ACCS, 
+            bad_accs: BAD_ACCS, frame_to: TIME): BOOLEAN =
+      (FORALL (i: OP_IDS):    
+            (    op_echos[i] > reint_to 
+             AND op_echos[i] <= pi+reint_to
+             AND (NOT op_accs[i]) AND (NOT fs_op_seen[i]))
+         => t >= op_echos[i])
+  AND (FORALL (i: BAD_IDS): 
+            (    bad_echos[i][1] <= pi+reint_to 
+             AND (NOT bad_accs[i]) AND (NOT fs_bad_seen[i]))
+         => t >= bad_echos[i][1])
+  AND (   (EXISTS (i: OP_IDS):     
+                 (NOT op_accs[i]) AND (NOT fs_op_seen[i]) 
+             AND op_echos[i] <= pi+reint_to
+             AND op_echos[i] < frame_to
+             AND t = op_echos[i])
+       OR (EXISTS (j: BAD_IDS):   
+                 (NOT bad_accs[j]) AND (NOT fs_bad_seen[j])
+             AND bad_echos[j][1] <= pi+reint_to 
+             AND bad_echos[j][1] < frame_to
+             AND t = bad_echos[j][1])
+       OR (frame_to < reint_to+pi AND t = frame_to));
+% --------------------------------------
+
+% --------------------------------------
+% Functions for counting the number of accused 
+% for the synchronization mode.
+not_accd_rec(op_accs: OP_ACCS, bad_accs: BAD_ACCS, 
+             i: ALL_CNT, cnt: ALL_CNT): ALL_CNT =
+  IF i=0 THEN cnt
+  ELSE (IF operational?(i) 
+        THEN 
+          (IF op_accs[i] 
+           THEN not_accd_rec(op_accs, bad_accs, i-1, cnt) 
+           ELSE not_accd_rec(op_accs, bad_accs, i-1, cnt+1)
+           ENDIF)
+        ELSE 
+          (IF bad_accs[i] 
+           THEN not_accd_rec(op_accs, bad_accs, i-1, cnt) 
+           ELSE not_accd_rec(op_accs, bad_accs, i-1, cnt+1)
+           ENDIF)
+        ENDIF)
+  ENDIF;
+
+not_accd(op_accs: OP_ACCS, bad_accs: BAD_ACCS): ALL_CNT =
+  not_accd_rec(op_accs, bad_accs, total, 0);
+% -------------------------------------- 
+
+% How many nodes seen in synch capture mode.
+sc_seen_rec(sc_op_seen: OP_ACCS, sc_bad_seen: BAD_ACCS, 
+            i: ALL_CNT, cnt: ALL_CNT): ALL_CNT =
+  IF i = 0 THEN cnt
+  ELSE 
+    (IF operational?(i) 
+     THEN 
+       (IF sc_op_seen[i] 
+        THEN sc_seen_rec(sc_op_seen, sc_bad_seen, i-1, cnt+1)
+        ELSE sc_seen_rec(sc_op_seen, sc_bad_seen, i-1, cnt)
+        ENDIF)
+     ELSE 
+       (IF sc_bad_seen[i] 
+        THEN sc_seen_rec(sc_op_seen, sc_bad_seen, i-1, cnt+1)
+        ELSE sc_seen_rec(sc_op_seen, sc_bad_seen, i-1, cnt)
+        ENDIF)
+     ENDIF)
+  ENDIF;
+
+sc_seen_total(sc_op_seen: OP_ACCS, 
+              sc_bad_seen: BAD_ACCS): ALL_CNT =
+  sc_seen_rec(sc_op_seen, sc_bad_seen, total, 0);
+
+% Defined as a predicate rather than a recursive function;
+% see Dutertre and Sorea's tech report for an explanation.
+% Determining the next valid echo for the synchronization
+% mode transitions.
+next?(t: TIME, reint_to: TIME, op_echos: OP_ECHOS, 
+      bad_echos: BAD_ECHOS, fs_op_seen: OP_ACCS, 
+      fs_bad_seen: BAD_ACCS, op_accs: OP_ACCS, 
+      bad_accs: BAD_ACCS, frame_to: TIME): BOOLEAN =
+      (FORALL (i: OP_IDS):    
+            (    op_echos[i] > reint_to 
+             AND (NOT op_accs[i]) AND (NOT fs_op_seen[i]))
+         => t <= op_echos[i])
+  AND (FORALL (i: BAD_IDS): 
+            (NOT bad_accs[i]) AND (NOT fs_bad_seen[i])
+         => t <= bad_echos[i][1])
+  AND (   (EXISTS (i: OP_IDS):     
+                 (NOT op_accs[i]) AND (NOT fs_op_seen[i]) 
+             AND reint_to < op_echos[i] 
+             AND op_echos[i] < frame_to
+             AND t = op_echos[i])
+       OR (EXISTS (j: BAD_IDS):
+                 (NOT bad_accs[j]) AND (NOT fs_bad_seen[j]) 
+             AND bad_echos[j][1] < frame_to
+             AND t = bad_echos[j][1])
+       OR t = frame_to);
+
+% Ensures the array of echos from faulty nodes satisfy 
+% are ascending. 
+ascending?(be: BAD_ECHO_ARRAY, reint_to: TIME): BOOLEAN =
+  FORALL (e: [1..pd_see_top-1]):     be[e] > reint_to 
+                                 AND be[e] < be[e+1];
+% -----------------------------------------------------------
+
+
+
+% -------------------------------- MODEL --------------------
+% MODES -----------------------------------------------------
+modes: MODULE = 
+BEGIN
+  INPUT 
+    pd_cntrl           : CNTRL,      
+    fs_cntrl           : CNTRL,      
+    sc_cntrl           : CNTRL
+  OUTPUT 
+    mode               : MODES
+  INITIALIZATION 
+    mode = pd_mode
+  TRANSITION
+  [
+      mode = pd_mode
+      --> 
+        mode' = IF pd_cntrl=active THEN mode ELSE fs_mode 
+                ENDIF
+   []
+      mode = fs_mode
+      --> 
+        mode' = IF fs_cntrl=active THEN mode ELSE sc_mode 
+                ENDIF
+   []
+      ELSE -->
+  ]
+END;
+% -----------------------------------------------------------
+
+
+% PRELIMINARY DIAGNOSIS MODE --------------------------------
+preliminary_diagnosis_mode: MODULE =
+BEGIN
+  INPUT  
+    mode            : MODES,
+    frame_to        : TIME,
+    op_echos        : OP_ECHOS, 
+    bad_echos       : BAD_ECHOS
+  OUTPUT 
+    pd_cntrl        : CNTRL
+  LOCAL  
+    pd_finish       : TIME,
+    pd_op_seen      : PD_OP_SEEN,
+    pd_bad_seen     : PD_BAD_SEEN 
+  GLOBAL 
+    op_accs         : OP_ACCS,
+    bad_accs        : BAD_ACCS,
+    reint_to        : TIME
+  INITIALIZATION 
+    pd_cntrl = active;
+    op_accs = [[i: OP_IDS] FALSE];
+    bad_accs = [[i: BAD_IDS] FALSE];
+    pd_op_seen = [[i: OP_IDS] 0];
+    pd_bad_seen = [[i: BAD_IDS] 0];
+    reint_to IN {t: TIME | t >= 0 AND t < P};
+    pd_finish = reint_to+P+pi
+  TRANSITION
+  [   
+          mode' = pd_mode
+      AND frame_to < pd_finish
+      -->
+        reint_to' = frame_to;
+        pd_op_seen' = [[i: OP_IDS] 
+                        IF (NOT op_accs[i]) 
+                        THEN pd_op_echos(pd_op_seen[i], 
+                                         op_echos[i], 
+                                         reint_to, reint_to')
+                        ELSE pd_op_seen[i] ENDIF];
+        pd_bad_seen' = [[i: BAD_IDS] 
+                         IF (NOT bad_accs[i])
+                         THEN pd_bad_echos(pd_bad_seen[i], 
+                                           bad_echos[i], 
+                                           reint_to, 
+                                           reint_to')
+                         ELSE pd_bad_seen[i] ENDIF];
+        op_accs' = [[i: OP_IDS]    
+                        op_accs[i] 
+                     OR pd_op_seen'[i] = pd_see_top];
+        bad_accs' = [[i: BAD_IDS] 
+                         bad_accs[i] 
+                      OR pd_bad_seen'[i] = pd_see_top]
+   [] % -----------------------------------------------------
+          mode' = pd_mode
+      AND frame_to >= pd_finish
+      -->
+        pd_cntrl' = deactive;
+        reint_to' = pd_finish;
+        pd_op_seen' = [[i: OP_IDS] 
+                        IF (NOT op_accs[i])
+                        THEN pd_op_echos(pd_op_seen[i], 
+                                         op_echos[i], 
+                                         reint_to, reint_to')
+                        ELSE pd_op_seen[i] ENDIF];
+        pd_bad_seen' = [[i: BAD_IDS] 
+                         IF (NOT bad_accs[i])
+                         THEN pd_bad_echos(pd_bad_seen[i], 
+                                      bad_echos[i], 
+                                      reint_to, reint_to')
+                         ELSE pd_bad_seen[i] ENDIF];
+        op_accs' = [[i: OP_IDS] 
+                        op_accs[i] 
+                     OR pd_op_seen'[i] = pd_see_top 
+                     OR pd_op_seen'[i] = 0];
+        bad_accs' = [[i: BAD_IDS] 
+                         bad_accs[i] 
+                      OR pd_bad_seen'[i] = pd_see_top 
+                      OR pd_bad_seen'[i] = 0]
+  ]
+END;
+% -----------------------------------------------------------
+
+
+% FRAME SYNCHRONIZATION -------------------------------------
+frame_synchronization_mode: MODULE = 
+BEGIN
+  INPUT  
+    mode            : MODES,
+    op_echos        : OP_ECHOS,
+    bad_echos       : BAD_ECHOS,
+    frame_to        : TIME
+  OUTPUT 
+    fs_cntrl        : CNTRL
+  LOCAL   
+    fs_op_seen      : OP_ACCS,
+    fs_bad_seen     : BAD_ACCS
+  GLOBAL 
+    op_accs         : OP_ACCS,
+    bad_accs        : BAD_ACCS,
+    reint_to        : TIME
+  INITIALIZATION 
+    fs_cntrl = deactive;
+    fs_op_seen = [[i: OP_IDS] FALSE];
+    fs_bad_seen = [[i: BAD_IDS] FALSE]
+  TRANSITION
+  [ 
+          mode' = fs_mode
+      AND NOT none_in_pi?(reint_to, op_echos, bad_echos, 
+                          fs_op_seen, fs_bad_seen, 
+                          op_accs, bad_accs)
+      -->
+        fs_cntrl' = active;
+        reint_to' IN {t: TIME 
+                       | last_in_pi?(t, reint_to, 
+                                     op_echos, bad_echos, 
+                                     op_accs, bad_accs, 
+                                     fs_op_seen, 
+                                     fs_bad_seen, frame_to)};
+        fs_op_seen' = [[i: OP_IDS] 
+                           fs_op_seen[i] 
+                        OR (    op_echos[i] > reint_to 
+                            AND op_echos[i] <= reint_to')];
+        fs_bad_seen' = [[i: BAD_IDS] 
+                            fs_bad_seen[i] 
+                         OR bad_echos[i][1] <= reint_to'];
+        op_accs' = [[i: OP_IDS] 
+                        op_accs[i] 
+                     OR (    op_echos[i] > reint_to 
+                         AND op_echos[i] <= reint_to'
+                         AND fs_op_seen[i])];
+        bad_accs' = [[i: BAD_IDS] 
+                         bad_accs[i] 
+                      OR (    bad_echos[i][1] <= reint_to'
+                          AND fs_bad_seen[i])];
+    []                                     
+          mode' = fs_mode
+      AND none_in_pi?(reint_to, op_echos, bad_echos, 
+                      op_accs, bad_accs, 
+                      fs_op_seen, fs_bad_seen)
+      -->
+        fs_cntrl' = deactive;
+        reint_to' = reint_to+pi;
+        op_accs' = [[i: OP_IDS] 
+                        op_accs[i] 
+                     OR (    op_echos[i] > reint_to 
+                         AND op_echos[i] <= reint_to'
+                         AND fs_op_seen[i])];
+        bad_accs' = [[i: BAD_IDS] 
+                         bad_accs[i] 
+                      OR (    bad_echos[i][1] <= reint_to'
+                          AND fs_bad_seen[i])];
+  ]
+END;
+% -----------------------------------------------------------
+
+
+% SYNCHRONIZATION CAPTURE MODE ------------------------------
+synch_capture_mode: MODULE = 
+BEGIN
+  INPUT
+    mode            : MODES,
+    frame_to        : TIME,
+    op_echos        : OP_ECHOS,
+    bad_echos       : BAD_ECHOS
+  OUTPUT 
+    sc_cntrl        : CNTRL
+  LOCAL
+    sc_op_seen      : OP_ACCS,
+    sc_bad_seen     : BAD_ACCS
+  GLOBAL                
+    reint_to        : TIME,     
+    op_accs         : OP_ACCS,
+    bad_accs        : BAD_ACCS
+  INITIALIZATION  
+    sc_cntrl = deactive;
+    sc_op_seen = [[i: OP_IDS] FALSE];
+    sc_bad_seen = [[i: BAD_IDS] FALSE]
+  TRANSITION 
+  [  
+          mode' = sc_mode
+      AND    sc_seen_total(sc_op_seen, sc_bad_seen) 
+          <= not_accd(op_accs, bad_accs)/2
+      -->
+        sc_cntrl' = active;
+        reint_to' IN {t: TIME 
+                       | next?(t, reint_to, 
+                               op_echos, bad_echos, 
+                               op_accs, bad_accs, sc_op_seen, 
+                               sc_bad_seen, frame_to)};
+        sc_op_seen' = [[i: OP_IDS] 
+                           sc_op_seen[i] 
+                        OR op_echos[i] = reint_to'];
+        sc_bad_seen' = [[i: BAD_IDS] 
+                            sc_bad_seen[i] 
+                         OR bad_echos[i][1] = reint_to'];
+   [] 
+          mode' = sc_mode
+      AND   sc_seen_total(sc_op_seen, sc_bad_seen) 
+          > not_accd(op_accs, bad_accs)/2
+      -->
+        sc_cntrl' = deactive
+  ]
+END;
+% -----------------------------------------------------------
+
+
+% CLIQUE ----------------------------------------------------
+op_node[i: OP_IDS]: MODULE = 
+BEGIN
+  INPUT 
+    frame_to: TIME,
+    reint_to: TIME
+  OUTPUT 
+    op_echo: TIME
+  INITIALIZATION 
+    op_echo IN {t: TIME | frame_to > t AND t > frame_to-pi}
+  TRANSITION
+  [
+      frame_to <= reint_to'
+      --> 
+        op_echo' IN {t: TIME |     frame_to' > t 
+                               AND t > frame_to'-pi}
+   []
+      ELSE --> 
+  ]
+END;
+
+P_update: MODULE =
+BEGIN
+  INPUT 
+    reint_to: TIME
+  LOCAL
+    new_frame: BOOLEAN
+  OUTPUT 
+    frame_to: TIME
+  INITIALIZATION 
+    frame_to = IF reint_to >= pi THEN P+pi ELSE pi 
+               ENDIF;
+    new_frame = FALSE
+  TRANSITION
+  [ 
+      frame_to <= reint_to'
+      --> 
+        frame_to' = frame_to+P;
+        new_frame' = TRUE
+   []
+      ELSE --> 
+        new_frame' = FALSE
+  ]
+END;
+
+op_nodes: MODULE = 
+  WITH OUTPUT op_echos: OP_ECHOS
+    (|| (i: OP_IDS): RENAME op_echo TO op_echos[i] 
+                       IN op_node[i]);
+
+clique: MODULE = op_nodes || P_update;
+%------------------------------------------------------------
+
+
+% BAD NODES -------------------------------------------------
+bad_node[i: BAD_IDS]: MODULE = 
+BEGIN
+  INPUT 
+    reint_to: TIME
+  OUTPUT 
+    bad_echo: BAD_ECHO_ARRAY 
+  INITIALIZATION 
+    bad_echo IN {be: BAD_ECHO_ARRAY 
+                   | ascending?(be, reint_to)}
+
+  TRANSITION
+  [
+      bad_echo[1] <= reint_to'
+      --> 
+        bad_echo' IN {be: BAD_ECHO_ARRAY 
+                        | ascending?(be, reint_to')}
+   []
+      ELSE --> 
+  ]
+END;
+
+bad_nodes: MODULE =
+  WITH OUTPUT bad_echos: BAD_ECHOS
+    (|| (i: BAD_IDS): RENAME bad_echo TO bad_echos[i] 
+                      IN bad_node[i]);
+%------------------------------------------------------------
+
+
+% FULL SYSTEM -----------------------------------------------
+base_modes: MODULE = 
+     preliminary_diagnosis_mode 
+  []
+     frame_synchronization_mode
+  []
+     synch_capture_mode;
+
+reintegrator: MODULE = base_modes || modes;
+
+system: MODULE = reintegrator || clique || bad_nodes;
+%------------------------------------------------------------
+
+
+
+% ------------------------------- CONJECTURES ---------------
+% Depths for a model with 2-3 operational nodes and 
+% one faulty node.
+
+% In the comments above a conjecture, "dn", where n is a 
+% natural number, is the k-induction depth.  The lemmas
+% follow, preceded by "-l."
+
+% NOTE: With a great number of nodes, it is often useful to 
+% disable disable expensive buchi automata optimizations
+% by setting the --disable-expensive-ba-opt flag.
+
+% SYSTEM INVARIANTS -----------------------------------------
+% If a mode is enabled, then the other modes are deactive.
+% proved d1
+mode_cntrl: LEMMA
+  system |- G(    (   mode = pd_mode 
+                   => (    fs_cntrl = deactive 
+                       AND sc_cntrl = deactive))
+              AND (   mode = fs_mode 
+                   => (    pd_cntrl = deactive 
+                       AND sc_cntrl = deactive))
+              AND (   mode = sc_mode 
+                   => (    pd_cntrl = deactive 
+                       AND fs_cntrl = deactive)));
+
+% Echos from operational nodes satisfy the frame property.
+% proved d1
+frame_prop: LEMMA
+  system |- G(FORALL (i: OP_IDS):     
+                    frame_to > op_echos[i] 
+                AND frame_to-op_echos[i] < pi);
+%------------------------------------------------------------
+
+
+% PRELIMINARY DIAGNOSIS INVARIANTS --------------------------
+% Bounds the finish time for the preliminary diagnosis mode.
+% proved d1
+pd_finish: LEMMA system |- G(pd_finish < 2*P+pi);
+
+% No operational nodes are accused upon initialization.
+% proved d1 
+pd_init_op_accs: LEMMA
+  system |- G(FORALL (i: OP_IDS):    
+                   (    mode = pd_mode AND pd_op_seen[i] = 0 
+                    AND pd_cntrl = active)
+                => NOT op_accs[i]);
+
+% Operational nodes are seen no more than twice during the
+% preliminary diagnosis mode.
+% proved d4 -l pd_finish -l mode_cntrl 
+op_seen_less2: LEMMA 
+  system |- G(FORALL (i: OP_IDS): pd_op_seen[i] <= 2);
+
+% Operational nodes are seen no less than once during the
+% preliminary diagnosis mode.
+% proved d3 -l mode_cntrl -l pd_init_op_accs
+op_seen_more1: LEMMA
+  system |- G(   pd_cntrl = deactive 
+              => FORALL (i: OP_IDS): pd_op_seen[i] >= 1);
+
+% No operational nodes are accused in the preliminary
+% diagnosis mode.
+% proved d1 -l op_seen_more1 -l op_seen_less2
+pd_no_op_accs: LEMMA
+  system |- G(   mode = pd_mode 
+              => FORALL (i: OP_IDS): NOT op_accs[i]);
+
+% The frame synchronization mode seen variables are 
+% unchanged in the preliminary diagnosis mode.
+% proved d1 
+pd_not_fs_seen: LEMMA
+  system |- G(   mode = pd_mode
+              => (    (FORALL(i: OP_IDS): NOT fs_op_seen[i])
+                  AND (FORALL(i: BAD_IDS): NOT fs_bad_seen[i])));
+
+% The synchronization capture mode seen variables are 
+% unchanged in the preliminary diagnosis mode.
+% proved d1 
+pd_not_sc_seen: LEMMA
+  system |- G(   mode = pd_mode 
+              => (    (FORALL(i: OP_IDS): NOT sc_op_seen[i])
+                  AND (FORALL(i: BAD_IDS): NOT sc_bad_seen[i])));
+%------------------------------------------------------------
+
+
+% FRAME SYNCHRONIZATION INVARIANTS --------------------------
+% No operational nodes are accused when the frame 
+% synchronization mode initializes.
+% proved d1 -l pd_no_op_accs
+fs_init_no_op_accs: LEMMA
+  system |- G(FORALL (i: OP_IDS):    
+                  (mode = fs_mode AND NOT fs_op_seen[i])
+                => NOT op_accs[i]);
+ 
+% The frame gap is found at the conclusion of the 
+% frame synchronization mode.
+% proved d3 -l pd_no_op_accs -l fs_init_no_op_accs 
+%           -l frame_prop -l pd_not_fs_seen 
+fs_frame_gap: LEMMA
+  system |- G(   (mode = fs_mode AND fs_cntrl = deactive)
+              => (FORALL (i: OP_IDS): 
+                    reint_to < op_echos[i]));
+
+% Demonstrates that the reintegrator's timeout has passed
+% the echo of an operational node in the current frame
+% if it has seen the echo already.
+% proved d3 -l mode_cntrl -l pd_not_fs_seen 
+%           -l fs_init_no_op_accs -l pd_no_op_accs 
+%           -l frame_prop -l fs_frame_gap
+fs_window: LEMMA
+  system |- G(   fs_cntrl = active
+              => (FORALL (i: OP_IDS): 
+                       (reint_to > frame_to-pi 
+                        AND fs_op_seen[i] 
+                        AND NOT reint_to = op_echos[i])
+                    => reint_to > op_echos[i]));
+
+% No operational nodes are accused in the frame
+% synchronization mode.
+% proved d3 -l mode_cntrl -l pd_not_fs_seen 
+%           -l fs_init_no_op_accs -l pd_no_op_accs 
+%           -l frame_prop -l fs_window  
+fs_no_op_accs: LEMMA
+  system |- G(   mode = fs_mode 
+              => FORALL (i: OP_IDS): NOT op_accs[i]);
+
+% The seen state variables for the synchronization capture
+% mode are invariant in the frame synchronization mode.
+% proved d1 -l pd_not_sc_seen
+fs_not_sc_seen: LEMMA
+  system |- G(   mode = fs_mode 
+              => (    (FORALL(i: OP_IDS): NOT sc_op_seen[i])
+                  AND (FORALL(i: BAD_IDS): NOT sc_bad_seen[i])));
+%------------------------------------------------------------
+
+
+% SYNCHRONIZATION CAPTURE INVARIANTS ------------------------
+% No operational nodes are accused during the reintegration
+% protocol.
+% proved d1 -l fs_no_op_accs -l pd_no_op_accs
+no_op_accs: THEOREM
+  system |- G(FORALL (i: OP_IDS): NOT op_accs[i]);
+
+
+% When the synchronization protocol initializes, the
+% reintegrator is in a frame gap.
+% proved d1 -l mode_cntrl -l frame_prop -l no_op_accs 
+%           -l fs_not_sc_seen -l fs_frame_gap
+sc_init_frame_gap: LEMMA
+  system |- G(    mode = sc_mode 
+              => (FORALL (i: OP_IDS):  
+                       NOT sc_op_seen[i] 
+                    => reint_to < op_echos[i]));
+
+% The reintegration protocol synchronizes the reintegrator.
+% proved d4 -l mode_cntrl -l frame_prop -l no_op_accs 
+%           -l fs_not_sc_seen -l sc_init_frame_gap 
+synched: THEOREM
+  system |- G((mode = sc_mode AND sc_cntrl = deactive) 
+              => (FORALL (i: OP_IDS): 
+                    IF reint_to >= op_echos[i]
+                    THEN reint_to - op_echos[i] < pi
+                    ELSE op_echos[i] - reint_to < pi
+                    ENDIF));
+%------------------------------------------------------------
+
+
+% MODEL INVARIANTS ------------------------------------------
+% To prove the timeout automata model with time-triggered
+% transitions is faithful.
+
+% The bad echo array behaves correctly.
+% proved d1
+bad_echos_ascend: LEMMA
+  system |- G(FORALL (i: BAD_IDS): 
+                FORALL (e: [1..pd_see_top-1]): 
+                       bad_echos[i][e] < bad_echos[i][e+1]);
+
+% The reintegrator's timeout is always less than the frame
+% timeout and the echos of the faulty nodes.
+% proved d2 -l mode_cntrl -l sc_init_frame_gap 
+%           -l fs_frame_gap -l frame_prop -l bad_echos_ascend
+reint_to_least: LEMMA
+  system |- G(    reint_to < frame_to
+              AND (FORALL (i: BAD_IDS): 
+                     FORALL (e: [1..pd_see_top]): 
+                       reint_to < bad_echos[i][e]));
+
+% The reintegrator's timeout is always within the current 
+% frame.
+% proved d3 -l reint_to_least -l fs_frame_gap -l synched
+current_frame: LEMMA
+  system |- G(frame_to - reint_to <= P);
+
+% Whenever the reintegrator moves to a new frame, it 
+% does not immediately move to the window in which 
+% operational nodes issue their echos.
+% proved d2
+good_frame_update: LEMMA
+  system |- G(new_frame => reint_to <= frame_to-pi);
+%------------------------------------------------------------
+
+
+% LIVENESS CHECKS -------------------------------------------
+% These should be false.  A counterexample to them provides
+% some assurance that the model is not deadlocked (making 
+% conjectures vaccuously true).
+
+% Counter examples at 
+% d4 -l frame_prop -l mode_cntrl -l pd_finish 
+%    -l pd_not_fs_seen -l pd_not_sc_seen -l fs_frame_gap 
+%    -l fs_window -l fs_no_op_accs -l no_op_accs  
+%    -l synched -l sc_init_frame_gap -l pd_no_op_accs  
+%    -l current_frame -l reint_to_least
+pd_ck: LEMMA system |- G(mode /= pd_mode);
+fs_ck: LEMMA system |- G(mode /= fs_mode);
+sc_ck: LEMMA system |- G(mode /= sc_mode);
+%------------------------------------------------------------
+
+END

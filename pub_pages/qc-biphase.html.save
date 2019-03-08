@@ -1,0 +1,86 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Experience Report: Roll Your Own Real-Time Simulator</title>
+</head>
+<body>
+<h1 style="text-align: center;">Experience Report: Roll Your Own 
+Real-Time  Simulator<br></h1>
+<hr style="width: 100%; height: 2px;">
+<ul>
+  <li>ABSTRACT:<br>
+    <br> To appear.
+  </li>
+</ul>
+<ul>
+  <li>BIBTEX:<br>
+    <pre>To appear.</pre>
+</li></ul>
+<ul>
+  <li>PAPER DOWNLOAD: To appear.
+</li>
+</ul>
+<ul>
+  <li>SLIDES DOWNLOAD: To appear.</li>
+</ul>
+<ul>
+  <li>SOURCE CODE:<br><br>
+The source is in Haskell and released under a BSD3 license (included in 
+the download).  You will need to download the simulator and a patch for 
+the <a 
+href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/QuickCheck>QuickCheck 
+Library</a>: 
+
+<ul> 
+<li>Simulator: </li>
+<li>Patch:</li>
+INSTALATION INSTRUCTIONS: The following assumes you have the <a 
+href="">GHC Haskel
+<ol>
+<li> First, download QuickCheck and patch it with the patch provided 
+above.  The easiest way to do this is as follows:
+<pre>
+$ darcs get http://code.haskell.org/QuickCheck
+$ cd QuickCheck
+</pre>
+Now edit the QuickCheck.cabal file by changing the version number to a 
+higher number (e.g., 2.2) then save your changes.
+<pre>
+$ cp yourDownloadFolder/pike-quotient-qc ./
+$ darcs apply pike-quotient-qc
+$ cabal build
+$ cabal install
+</pre>
+</li>
+<li> Now install the simulator:
+
+</ul>
+</ul>
+<ul>
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+<td style="vertical-align: top; text-align: right;">
+<!--Email begin-->
+<script type="text/javascript"> emailE=('leepike@' + 'galois.com')
+document.write(
+'<A href="mailto:' + emailE + '">'
++ emailE + '<\/a>'
+)
+</script><!--Email end--></td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

@@ -1,0 +1,64 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Practical Considerations in Control-Flow Integrity Monitoring</title>
+</head>
+<body>
+<h1 style="text-align: center;">Practical Considerations in Control-Flow Integrity Monitoring<br></h1>
+<hr style="width: 100%; height: 2px;">
+<ul>
+  <li>ABSTRACT:<br>
+    <br> 
+  Control-flow integrity (CFI) checks ensure that programs respect their
+  static call-graphs at runtime.  A program might violate its call-graph due to
+  malicious attacks such as shellcode injection or return-to-libc style
+  exploits.  CFI checking can also be beneficial during testing to discover
+  properties of control-flow, as well as at deployment to detect malicious
+  behavior.  We present practical aspects of CFI checking, including advantages
+  and disadvantages of the following: how to represent call-graphs, how to
+  instrument CFI checks, and how to refine CFI checks to properties of
+  control-flow.  We discuss two implementations: one instrumenting the source
+  code and the other instrumenting the compiler generated assembly, and we
+  describe their performance.  Our paper is meant to be a practical guide to
+  CFI monitoring.
+
+  </li>
+</ul>
+<ul>
+  <li>BIBTEX:<br>
+    <pre>
+@InProceedings{diatchki-sectest,
+  author =    {Iavor Diatchki and Lee Pike and Levent Erk&ouml;k},
+  title =     {Practical Considerations in Control-Flow Integrity Monitoring},
+  booktitle = {Proceedings of the The Second International Workshop on Security Testing (SECTEST'2011)},
+  publisher = {IEEE},
+  year =      {2011},
+  month =     {March},
+  note =      {Preprint available at \url{http://www.cs.indiana.edu/~lepike/pub_pages/sectest.html}},
+}
+</pre>
+</li></ul>
+<ul>
+  <li>PAPER DOWNLOAD: <a href="../pubs/diatchki-sectest2011.pdf">diatchki-sectest2011pdf</a> 
+</li>
+</ul>
+
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

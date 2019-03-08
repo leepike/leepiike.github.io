@@ -1,0 +1,100 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Easy Parameterized Verificaton of Biphase Mark and 8N1 Protocols</title>
+</head>
+<body>
+<h1 style="text-align: center;"><br>Easy Parameterized Verificaton of Biphase Mark and 
+8N1 Protocols</br></h1>
+<hr style="width: 100%; height: 2px;">
+
+ <ul>
+  <li>ABSTRACT:<br>
+    <br> The Biphase Mark Protocol (BMP) and 8N1 Protocol are physical layer protocols for 
+data transmission.  We present a generic model in which timing and error values are 
+parameterized by linear constraints, and then we use this model to verify these protocols.  
+The verifications are carried out using SRI's SAL model checker that combines a 
+<em>satisfiability modulo theories</em> decision procedure with a bounded model checker for 
+highly-automated induction proofs of safety properties over infinite-state systems.  
+Previously, parameterized formal verification of real-time systems required mechanical 
+theorem-proving or specialized real-time model checkers; we describe a compelling case-study 
+demonstrating a simpler and more general approach.  The verification reveals a significant 
+error in the parameter ranges for 8N1 given in a published application note.
+  </li>
+</ul>
+<ul>
+  <li>BIBTEX:<br>
+    <pre>@InProceedings{brown_pike_06,
+  author =    {Geoffrey M. Brown and Lee Pike},
+  title =     {Easy parameterized verification of biphase mark and {8N1} protocols},
+  booktitle = {The Proceedings of the 12th International Conference on Tools and the 
+               Construction of Algorithms ({TACAS'06})},
+  year =      {2006},
+  publisher = {Springer},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {3920},
+  pages =     {58--72},
+  note =      {Available at \url{http://www.cs.indiana.edu/~lepike/pub_pages/bmp.html}}}
+</li></ul>
+
+<ul>
+  <li>PAPER DOWNLOAD: <a href="../pubs/bmp.pdf">pdf</a>&nbsp; 
+</li>
+</ul>
+
+  <ul>
+  <li>SLIDES DOWNLOAD: <a href="../talks/tacas.pdf">pdf</a></li>
+</ul>  
+
+
+<ul>
+  <li>SAL FILES DOWNLOAD:<br><br>
+  <ul> <li><a href="../support/uart.sal">uart.sal</a></li>
+       <li><a href="../support/biphase.sal">biphase.sal</a></li>
+       <li><a href="../support/biphase_full.sal">biphase_full.sal</a> (fully 
+parameterized model)</li>
+       <li><a href="../support/runproof">runproof</a> (proof script)</li>
+  </ul>
+</ul>
+
+<ul>
+  <li> ADDENDUM:<br><br>
+The paper mentions a shortcoming with the ICS decision procedure that 
+prevents a substantially parameterized 8N1 protocol from being verified.  We discovered a 
+solution to this shortcoming that involves restating the main disjunctive invariant in terms of a 
+recursive function, and using a recursive function as a "macro" for multiplication.  Under 
+this reformulation, a parameterized verification with error terms and a fully parameterized 
+verification are successfully verified.<br><br></li>
+  <ul>
+    <li> <a href="../support/uart_rec.sal">uart_rec.sal</a> (model with error terms)</li>
+    <li> <a href="../support/uart_full.sal">uart_full.sal</a> (fully parameterized model)</li>
+</ul>
+</ul>
+
+<ul>
+<li>NOTES: The SMT verification conditions from this work are some of the <a
+href="http://www.smt-lib.org/">SMT-LIB</a>
+quantifier-free linear real-arithmetic <a
+href="http://goedel.cs.uiowa.edu/smtlib/benchmarks/QF_LRA/uart/">benchmarks</a>.
+</li>
+</ul>
+
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

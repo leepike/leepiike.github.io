@@ -1,0 +1,115 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Roll Your Own Test Bed for Embedded Real-Time Protocols: A Haskell Experience</title>
+</head>
+<body>
+<h1 style="text-align: center;">Roll Your Own Test Bed for Embedded Real-Time Protocols: A Haskell Experience<br></h1>
+<hr style="width: 100%; height: 2px;">
+<ul>
+  <li>ABSTRACT:<br>
+    <br> 
+  We present by example a new application domain for functional languages:
+  emulators for embedded real-time protocols.  As a case-study, we implement a
+  simple emulator for the Biphase Mark Protocol, a physical-layer network
+  protocol in Haskell.  The surprising result is that a pure functional
+  language with no built-in notion of time is extremely well-suited for
+  constructing such emulators.  Furthermore, we use Haskell's property-checker
+  QuickCheck to automatically generate real-time parameters for simulation.  We
+  also describe a novel use of QuickCheck as a ``probability calculator'' for
+  reliability analysis.
+  </li>
+</ul>
+<ul>
+  <li>BIBTEX:<br>
+    <pre>@InProceedings{pike-haskell09,
+  author =    {Lee Pike and Geoffrey Brown and Alwyn Goodloe},
+  title =     {Roll Your Own Test Bed for Embedded Real-Time Protocols: A {H}askell Experience},
+  booktitle = {Proceedings of the ACM SIGPLAN Haskell Symposium},
+  pages =     {61--68},
+  year =      {2009},
+  editor =    {Stephanie Weirich},
+  publisher = {ACM}
+}</pre>
+</li></ul>
+<ul>
+  <li>PAPER DOWNLOAD: <a href="../pubs/qcbiphase.pdf">qcbiphase.pdf</a>
+</li>
+</ul>
+<ul>
+  <li>SLIDES DOWNLOAD: <a href="../talks/pike-haskell09.pdf">pike-haskell09.pdf</a>  Here's a <a href="http://www.vimeo.com/6684450">video of the talk</a>!</li>
+</ul>
+<ul>
+  <li>SOURCE CODE:<br>
+The source is in Haskell and released under a BSD3 license.  You will need to download the Cabal tar file containing two source files as well as a patch for the <a
+href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/QuickCheck">QuickCheck
+Library</a> (the patch only extends the API and should not break any existing code using QuickCheck).  I also have copies of the source if you just want to browse..
+</li>
+
+<ul> 
+<li>Cabal package: <a href="../support/QcBiphase/biphase-0.2.tar.gz">biphase-0.2.tar.gz</a></li>
+<li>Simulator: <a href="../support/QcBiphase/Biphase.hs">Biphase.hs</a> and <a href="../support/QcBiphase/Haddock/Biphase.html">Haddock documentation</a></li>
+<li>QuickCheck Driver: <a href="../support/QcBiphase/BiphaseQC.hs">BiphaseQC.hs</a> and <a \
+href="../support/QcBiphase/Haddock/Main.html">Haddock documentation</a></li>
+<li>License: <a href="../support/QcBiphase/LICENSE">BSD3 License</a></li>
+<li>QuickCheck Patch: <a 
+href="../support/QcBiphase/pike-quotient-qc">pike-quotient-qc</a></li>
+</ul>
+<br>
+
+INSTALATION INSTRUCTIONS:
+Well, first of all, just email me (address given at the bottom of this page) if you 
+have any problems.  I assume you 
+have already installed <a 
+href="http://www.haskell.org/ghc/">GHC</a> (Haskell compiler), 
+<a href="http://darcs.net/">Darcs</a> (revision control system), and <a 
+href="http://hackage.haskell.org/trac/hackage/wiki/CabalInstall">Cabal</a> 
+(Haskell build system)</a>.
+ <ol>
+<li> First, download QuickCheck and patch it with the patch provided 
+above.  The 
+easiest way to do this is as follows: <pre>
+$ darcs get http://code.haskell.org/QuickCheck
+$ cd QuickCheck
+</pre>
+Then edit the QuickCheck.cabal file by changing the version number to a 
+higher number (e.g., 2.2) and save your changes.  Now do the following:
+<pre>
+$ cp yourDownloadFolder/pike-quotient-qc ./
+$ darcs apply pike-quotient-qc
+$ cabal configure
+$ cabal build
+$ cabal install
+</pre>
+</li>
+<li> Now download the simulator Cabal package above and execute the 
+following in your shell:
+<pre>
+$ tar -xzvf biphase-0.2.tar.gz ; cd biphase-0.2
+$ cabal configure
+$ cabal build
+$ cabal install
+</pre>
+</li>
+</ol>
+</ul>
+</ul>
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

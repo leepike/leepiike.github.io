@@ -1,0 +1,955 @@
+%% PVS Version 3.2
+%% 6.2 [Linux (x86)] (Nov 3, 2004 23:30)
+$$$PVSHOME/.pvs.lisp
+;; COPY THIS FILE TO ~user/.pvs.lisp
+
+(pvs-message "Loading patches PVS3.2")
+
+(defmethod copy-untyped* ((ex fieldappl))
+  (with-slots (id actuals argument) ex
+    (copy ex
+      'id id
+      'type nil
+      'actuals (copy-untyped* actuals)
+      'argument (copy-untyped* argument))))
+
+
+(defun exportable? (decl theory)
+  (assert *current-context*)
+  (or (eq (module decl) (current-theory))
+      (from-prelude? decl)
+      (from-prelude-library? decl)
+      (unless (or (from-prelude? theory)
+		  (from-prelude-library? theory))
+	(let ((exp (exporting theory)))
+	  (if (eq (module decl) theory)
+	      (or (eq (kind exp) 'default)
+		  (if (eq (names exp) 'all)
+		      (not (member decl (but-names exp) :test #'expname-test))
+		      (member decl (names exp) :test #'expname-test)))
+	      (or ;;(eq (kind exp) 'default)
+	       (and (rassoc (module decl) (closure exp) :test #'eq)
+		    (exportable? decl (module decl)))))))))
+
+(defun get-immediate-using-ids (theory)
+  (mapcan #'(lambda (d)
+	      (get-immediate-using-ids* (theory-name d) theory))
+    (remove-if-not #'mod-or-using? (all-decls theory))))
+
+(defun get-immediate-using-ids* (tn theory &optional ids)
+  (if (null tn)
+      (nreverse ids)
+      (let ((id (unless (library tn)
+		   (if (eq (id tn) (id theory))
+		       (if ids
+			   (type-error tn
+			     "Target ~a may not reference itself" (id theory))
+			   (type-error tn
+			     "Theory ~a may not import itself" (id theory)))
+		       (id tn)))))
+	(get-immediate-using-ids*
+	 (target tn)
+	 theory
+	 (if id (cons id ids) ids)))))
+
+(defmethod untypecheck-theory ((ex name))
+  (assert (not (memq ex (list *boolean* *number*))))
+  (when (next-method-p) (call-next-method))
+  (untypecheck-theory (actuals ex))
+  (untypecheck-theory (mappings ex))
+  (untypecheck-theory (target ex))
+  (setf (resolutions ex) nil))
+
+(defmethod compare* ((old name) (new name))
+  (and (compare* (mod-id old) (mod-id new))
+       (compare* (library old) (library new))
+       (and (or (and (null (actuals old)) (null (actuals new)))
+		(and (actuals old) (actuals new)))
+	    (compare* (actuals old) (actuals new)))
+       (and (or (and (null (mappings old)) (null (mappings new)))
+		(and (mappings old) (mappings new)))
+	    (compare* (mappings old) (mappings new)))
+       (and (or (and (null (target old)) (null (target new)))
+		(and (target old) (target new)))
+	    (compare* (target old) (target new)))
+       (compare* (id old) (id new))))
+
+(defun pvs-soriorq-internal (which prompt num paren)
+     "Internal function to insert a skolem or inst command."
+     (let* ((count 1)
+  	(arglist "")
+  	(nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						" [CR to quit]: ")
+  					"")))
+       (while (not (string= nextarg ""))
+         (setq count (1+ count))
+         (setq arglist (concat arglist "\"" nextarg "\" "))
+         (setq nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						  " [CR to quit]: ")
+  					  "")))
+       (if (string= arglist "")
+  	(insert (concat "(" which "! " num ")"))
+  	(insert (concat "(" which " " num
+  			(if paren " ("  " ")
+  			arglist
+  			(if paren "))" ")")
+  			)))))
+
+(defun get-interpreted-mapping (theory interpretation theory-name)
+  (let* ((*subst-mod-params-map-bindings* nil)
+	 (mapping (make-subst-mod-params-map-bindings
+		   theory-name (mappings theory-name) nil))
+	 (int-decls (when interpretation (all-decls interpretation))))
+    (when interpretation
+      (dolist (decl (interpretable-declarations theory))
+	(unless (assq decl mapping)
+	  (let ((fdecl (find decl int-decls
+			     :test #'(lambda (x y)
+				       (and (declaration? y)
+					    (same-id x y))))))
+	    (unless (eq decl fdecl)
+	      (push (cons decl fdecl) mapping))))))
+    #+pvsdebug (assert (every #'cdr mapping))
+    mapping))
+
+(defmethod subst-mod-params* ((expr name-expr) modinst bindings)
+  (declare (ignore modinst))
+  (let* ((decl (declaration expr))
+	 (act (cdr (assq decl bindings))))
+    (if act
+	(if (declaration? act)
+	    (mk-name-expr (id act) nil nil
+			  (mk-resolution act
+			    (mk-modname (id (module act)))
+			    (type act)))
+	    (expr act))
+	(let ((nexpr (call-next-method)))
+	  (if (eq nexpr expr)
+	      expr
+	      (let ((ntype (type (resolution nexpr))))
+		(lcopy nexpr 'type ntype)))))))
+
+(defun get-theory-from-binfile (filename)
+  (let* ((file (make-binpath filename))
+	 (start-time (get-internal-real-time))
+	 (*bin-theories-set* nil)
+	 (vtheory (ignore-lisp-errors (fetch-object-from-file file)))
+	 (load-time (get-internal-real-time)))
+    (if (and (listp vtheory)
+	     (integerp (car vtheory))
+	     (= (car vtheory) *binfile-version*))
+	(let* ((theory (cdr vtheory))
+	       (*restore-object-hash* (make-hash-table :test #'eq))
+	       (*restore-objects-seen* nil)
+	       (*assert-if-arith-hash* (make-hash-table :test #'eq))
+	       (*subtype-of-hash* (make-hash-table :test #'equal))
+	       (*current-context* (prerestore-context (saved-context theory))))
+	  (assert (current-theory))
+	  (assert (judgement-types-hash (judgements *current-context*)))
+	  (restore-object theory)
+	  (assert (datatype-or-module? theory))
+	  (assert (not (eq (lhash-next (declarations-hash (saved-context theory)))
+			   'prelude-declarations-hash)))
+	  (postrestore-context *current-context*)
+	  (pvs-message
+	      "Restored theory from ~a.bin in ~,2,-3fs (load part took ~,2,-3fs)"
+	    filename (realtime-since start-time)
+	    (floor (- load-time start-time) millisecond-factor))
+	  theory)
+	(progn (pvs-message "Bin file version for ~a is out of date"
+		 filename)
+	       (ignore-errors (delete-file file))
+	       (dolist (thid *bin-theories-set*)
+		 (remhash thid *pvs-modules*))
+	       nil))))
+
+(defun pc-sort (decls &optional theory)
+  (assert (or theory *current-context*))
+  (let* ((th (or theory (current-theory)))
+	 (imps (cons th (complete-importings th))))
+    (assert (every #'(lambda (x)
+		       (or (from-prelude? x)
+			   (from-prelude-library? x)
+			   (memq (module x) imps)))
+		   decls))
+    (sort decls
+	  #'(lambda (x y)
+	      (cond ((eq (module x) (module y))
+		     (string< (id x) (id y)))
+		    ((from-prelude? y)
+		     (or (not (from-prelude? x))
+			 (string< (id (module x)) (id (module y)))))
+		    ((from-prelude-library? y)
+		     (and (not (from-prelude? x))
+			  (or (not (from-prelude-library? x))
+			      (string< (id (module x)) (id (module y))))))
+		    (t (and (not (from-prelude? x))
+			   (memq (module y) (memq (module x) imps)))))))))
+
+(defun complete-importings (th)
+  (multiple-value-bind (imps impnames)
+      (all-importings th)
+    (multiple-value-call #'add-generated-interpreted-theories
+			 (add-generated-adt-theories
+			  (cons th imps)
+			  (cons (mk-modname (id th)) impnames))
+			 th)))
+
+(defun theory-formula-alist (file)
+  (let* ((theories (cdr (gethash file *pvs-files*)))
+	 (ce (unless theories (context-entry-of file))))
+    (cond (theories
+	   (mapcar #'(lambda (th)
+		       (cons (id th)
+			     (mapcar #'id
+			       (remove-if-not #'(lambda (d)
+						  (provable-formula? d))
+				 (all-decls th)))))
+	     theories))
+	  (ce
+	   (mapcar #'(lambda (te)
+		       (cons (te-id te)
+			     (mapcar #'fe-id (te-formula-info te))))
+	     (ce-theories ce))))))
+
+(defun add-tcc-bindings (expr conditions substs antes &optional bindings)
+  (if (typep (car conditions) 'bind-decl)
+      ;; Recurse till there are no more bindings, so we build
+      ;;  FORALL x, y ... rather than FORALL x: FORALL y: ...
+      (let* ((bd (car conditions))
+             (nbd (or (cdr (assq bd substs)) bd)))
+        (add-tcc-bindings expr (cdr conditions) substs antes
+                          (if (or (occurs-in bd expr)
+                                  (occurs-in bd antes)
+                                  (occurs-in bd substs)
+                                  (possibly-empty-type? (type bd)))
+                              (cons nbd bindings)
+                              bindings)))
+      ;; Now we can build the universal closure
+      (let* ((nbody (substit (if antes
+                                 (make!-implication
+                                  (make!-conjunction* (reverse antes))
+                                  expr)
+                                 expr)
+                      substs))
+             (nbindings (get-tcc-closure-bindings bindings nbody))
+             (nexpr (if nbindings
+                        (make!-forall-expr nbindings nbody)
+                        nbody)))
+        (add-tcc-conditions* nexpr conditions substs nil))))
+
+(defun get-tcc-closure-bindings (bindings body)
+  (let ((fvars (freevars body)))
+    (remove-if (complement
+                #'(lambda (bd)
+                    (or (member bd fvars :key #'declaration)
+                        (possibly-empty-type? (type bd)))))
+      bindings)))        
+
+(defmethod restore-object* :around ((obj nonempty-type-decl))
+  (call-next-method)
+  (set-nonempty-type (type-value obj)))
+
+(defun xt-expr (expr)
+  (case (sim-term-op expr)
+    (NUMBER-EXPR (xt-number-expr expr))
+    (STRING-EXPR (xt-string-expr expr))
+    (NAME-EXPR (xt-name-expr expr))
+    (LIST-EXPR (xt-list-expr expr))
+    ;;(true (xt-true expr))
+    ;;(false (xt-false expr))
+    (REC-EXPR (xt-rec-expr expr))
+    (TUPLE-EXPR (xt-tuple-expr expr))
+    (TERM-EXPR (xt-term-expr expr))
+    (UNARY-TERM-EXPR (xt-unary-term-expr expr))
+    (FIELDEX (xt-fieldex expr))
+    (PROJEX (xt-projex expr))
+    (FIELDAPPL (xt-fieldappl expr))
+    (PROJAPPL (xt-projappl expr))
+    ;;(intype (xt-intype expr))
+    (COERCION (xt-coercion expr))
+    (IF-EXPR (xt-if-expr expr))
+    (APPLICATION (xt-application expr))
+    (BIND-EXPR (xt-bind-expr expr))
+    (NAME-BIND-EXPR (xt-name-bind-expr expr))
+    (SET-EXPR (xt-set-expr expr))
+    (LET-EXPR (xt-let-expr expr))
+    (WHERE-EXPR (xt-where-expr expr))
+    (UPDATE-EXPR (xt-update-expr expr))
+    ;;(override-expr (xt-override-expr expr))
+    (CASES-EXPR (xt-cases-expr expr))
+    (COND-EXPR (xt-cond-expr expr))
+    (TABLE-EXPR (xt-table-expr expr))
+    (SKOVAR (xt-skovar expr))
+    (BRACK-EXPR (xt-brack-expr expr))
+    (PAREN-VBAR-EXPR (xt-paren-vbar-expr expr))
+    (BRACE-VBAR-EXPR (xt-brace-vbar-expr expr))
+    (t (error "Unrecognized expr - ~a" expr))))
+
+$$$PVSHOME/.pvs.lisp
+;; COPY THIS FILE TO ~user/.pvs.lisp
+
+(pvs-message "Loading patches PVS3.2")
+
+(defmethod copy-untyped* ((ex fieldappl))
+  (with-slots (id actuals argument) ex
+    (copy ex
+      'id id
+      'type nil
+      'actuals (copy-untyped* actuals)
+      'argument (copy-untyped* argument))))
+
+
+(defun exportable? (decl theory)
+  (assert *current-context*)
+  (or (eq (module decl) (current-theory))
+      (from-prelude? decl)
+      (from-prelude-library? decl)
+      (unless (or (from-prelude? theory)
+		  (from-prelude-library? theory))
+	(let ((exp (exporting theory)))
+	  (if (eq (module decl) theory)
+	      (or (eq (kind exp) 'default)
+		  (if (eq (names exp) 'all)
+		      (not (member decl (but-names exp) :test #'expname-test))
+		      (member decl (names exp) :test #'expname-test)))
+	      (or ;;(eq (kind exp) 'default)
+	       (and (rassoc (module decl) (closure exp) :test #'eq)
+		    (exportable? decl (module decl)))))))))
+
+(defun get-immediate-using-ids (theory)
+  (mapcan #'(lambda (d)
+	      (get-immediate-using-ids* (theory-name d) theory))
+    (remove-if-not #'mod-or-using? (all-decls theory))))
+
+(defun get-immediate-using-ids* (tn theory &optional ids)
+  (if (null tn)
+      (nreverse ids)
+      (let ((id (unless (library tn)
+		   (if (eq (id tn) (id theory))
+		       (if ids
+			   (type-error tn
+			     "Target ~a may not reference itself" (id theory))
+			   (type-error tn
+			     "Theory ~a may not import itself" (id theory)))
+		       (id tn)))))
+	(get-immediate-using-ids*
+	 (target tn)
+	 theory
+	 (if id (cons id ids) ids)))))
+
+(defmethod untypecheck-theory ((ex name))
+  (assert (not (memq ex (list *boolean* *number*))))
+  (when (next-method-p) (call-next-method))
+  (untypecheck-theory (actuals ex))
+  (untypecheck-theory (mappings ex))
+  (untypecheck-theory (target ex))
+  (setf (resolutions ex) nil))
+
+(defmethod compare* ((old name) (new name))
+  (and (compare* (mod-id old) (mod-id new))
+       (compare* (library old) (library new))
+       (and (or (and (null (actuals old)) (null (actuals new)))
+		(and (actuals old) (actuals new)))
+	    (compare* (actuals old) (actuals new)))
+       (and (or (and (null (mappings old)) (null (mappings new)))
+		(and (mappings old) (mappings new)))
+	    (compare* (mappings old) (mappings new)))
+       (and (or (and (null (target old)) (null (target new)))
+		(and (target old) (target new)))
+	    (compare* (target old) (target new)))
+       (compare* (id old) (id new))))
+
+(defun pvs-soriorq-internal (which prompt num paren)
+     "Internal function to insert a skolem or inst command."
+     (let* ((count 1)
+  	(arglist "")
+  	(nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						" [CR to quit]: ")
+  					"")))
+       (while (not (string= nextarg ""))
+         (setq count (1+ count))
+         (setq arglist (concat arglist "\"" nextarg "\" "))
+         (setq nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						  " [CR to quit]: ")
+  					  "")))
+       (if (string= arglist "")
+  	(insert (concat "(" which "! " num ")"))
+  	(insert (concat "(" which " " num
+  			(if paren " ("  " ")
+  			arglist
+  			(if paren "))" ")")
+  			)))))
+
+(defun get-interpreted-mapping (theory interpretation theory-name)
+  (let* ((*subst-mod-params-map-bindings* nil)
+	 (mapping (make-subst-mod-params-map-bindings
+		   theory-name (mappings theory-name) nil))
+	 (int-decls (when interpretation (all-decls interpretation))))
+    (when interpretation
+      (dolist (decl (interpretable-declarations theory))
+	(unless (assq decl mapping)
+	  (let ((fdecl (find decl int-decls
+			     :test #'(lambda (x y)
+				       (and (declaration? y)
+					    (same-id x y))))))
+	    (unless (eq decl fdecl)
+	      (push (cons decl fdecl) mapping))))))
+    #+pvsdebug (assert (every #'cdr mapping))
+    mapping))
+
+(defmethod subst-mod-params* ((expr name-expr) modinst bindings)
+  (declare (ignore modinst))
+  (let* ((decl (declaration expr))
+	 (act (cdr (assq decl bindings))))
+    (if act
+	(if (declaration? act)
+	    (mk-name-expr (id act) nil nil
+			  (mk-resolution act
+			    (mk-modname (id (module act)))
+			    (type act)))
+	    (expr act))
+	(let ((nexpr (call-next-method)))
+	  (if (eq nexpr expr)
+	      expr
+	      (let ((ntype (type (resolution nexpr))))
+		(lcopy nexpr 'type ntype)))))))
+
+(defun get-theory-from-binfile (filename)
+  (let* ((file (make-binpath filename))
+	 (start-time (get-internal-real-time))
+	 (*bin-theories-set* nil)
+	 (vtheory (ignore-lisp-errors (fetch-object-from-file file)))
+	 (load-time (get-internal-real-time)))
+    (if (and (listp vtheory)
+	     (integerp (car vtheory))
+	     (= (car vtheory) *binfile-version*))
+	(let* ((theory (cdr vtheory))
+	       (*restore-object-hash* (make-hash-table :test #'eq))
+	       (*restore-objects-seen* nil)
+	       (*assert-if-arith-hash* (make-hash-table :test #'eq))
+	       (*subtype-of-hash* (make-hash-table :test #'equal))
+	       (*current-context* (prerestore-context (saved-context theory))))
+	  (assert (current-theory))
+	  (assert (judgement-types-hash (judgements *current-context*)))
+	  (restore-object theory)
+	  (assert (datatype-or-module? theory))
+	  (assert (not (eq (lhash-next (declarations-hash (saved-context theory)))
+			   'prelude-declarations-hash)))
+	  (postrestore-context *current-context*)
+	  (pvs-message
+	      "Restored theory from ~a.bin in ~,2,-3fs (load part took ~,2,-3fs)"
+	    filename (realtime-since start-time)
+	    (floor (- load-time start-time) millisecond-factor))
+	  theory)
+	(progn (pvs-message "Bin file version for ~a is out of date"
+		 filename)
+	       (ignore-errors (delete-file file))
+	       (dolist (thid *bin-theories-set*)
+		 (remhash thid *pvs-modules*))
+	       nil))))
+
+(defun pc-sort (decls &optional theory)
+  (assert (or theory *current-context*))
+  (let* ((th (or theory (current-theory)))
+	 (imps (cons th (complete-importings th))))
+    (assert (every #'(lambda (x)
+		       (or (from-prelude? x)
+			   (from-prelude-library? x)
+			   (memq (module x) imps)))
+		   decls))
+    (sort decls
+	  #'(lambda (x y)
+	      (cond ((eq (module x) (module y))
+		     (string< (id x) (id y)))
+		    ((from-prelude? y)
+		     (or (not (from-prelude? x))
+			 (string< (id (module x)) (id (module y)))))
+		    ((from-prelude-library? y)
+		     (and (not (from-prelude? x))
+			  (or (not (from-prelude-library? x))
+			      (string< (id (module x)) (id (module y))))))
+		    (t (and (not (from-prelude? x))
+			   (memq (module y) (memq (module x) imps)))))))))
+
+(defun complete-importings (th)
+  (multiple-value-bind (imps impnames)
+      (all-importings th)
+    (multiple-value-call #'add-generated-interpreted-theories
+			 (add-generated-adt-theories
+			  (cons th imps)
+			  (cons (mk-modname (id th)) impnames))
+			 th)))
+
+(defun theory-formula-alist (file)
+  (let* ((theories (cdr (gethash file *pvs-files*)))
+	 (ce (unless theories (context-entry-of file))))
+    (cond (theories
+	   (mapcar #'(lambda (th)
+		       (cons (id th)
+			     (mapcar #'id
+			       (remove-if-not #'(lambda (d)
+						  (provable-formula? d))
+				 (all-decls th)))))
+	     theories))
+	  (ce
+	   (mapcar #'(lambda (te)
+		       (cons (te-id te)
+			     (mapcar #'fe-id (te-formula-info te))))
+	     (ce-theories ce))))))
+
+(defun add-tcc-bindings (expr conditions substs antes &optional bindings)
+  (if (typep (car conditions) 'bind-decl)
+      ;; Recurse till there are no more bindings, so we build
+      ;;  FORALL x, y ... rather than FORALL x: FORALL y: ...
+      (let* ((bd (car conditions))
+             (nbd (or (cdr (assq bd substs)) bd)))
+        (add-tcc-bindings expr (cdr conditions) substs antes
+                          (if (or (occurs-in bd expr)
+                                  (occurs-in bd antes)
+                                  (occurs-in bd substs)
+                                  (possibly-empty-type? (type bd)))
+                              (cons nbd bindings)
+                              bindings)))
+      ;; Now we can build the universal closure
+      (let* ((nbody (substit (if antes
+                                 (make!-implication
+                                  (make!-conjunction* (reverse antes))
+                                  expr)
+                                 expr)
+                      substs))
+             (nbindings (get-tcc-closure-bindings bindings nbody))
+             (nexpr (if nbindings
+                        (make!-forall-expr nbindings nbody)
+                        nbody)))
+        (add-tcc-conditions* nexpr conditions substs nil))))
+
+(defun get-tcc-closure-bindings (bindings body)
+  (let ((fvars (freevars body)))
+    (remove-if (complement
+                #'(lambda (bd)
+                    (or (member bd fvars :key #'declaration)
+                        (possibly-empty-type? (type bd)))))
+      bindings)))        
+
+(defmethod restore-object* :around ((obj nonempty-type-decl))
+  (call-next-method)
+  (set-nonempty-type (type-value obj)))
+
+(defun xt-expr (expr)
+  (case (sim-term-op expr)
+    (NUMBER-EXPR (xt-number-expr expr))
+    (STRING-EXPR (xt-string-expr expr))
+    (NAME-EXPR (xt-name-expr expr))
+    (LIST-EXPR (xt-list-expr expr))
+    ;;(true (xt-true expr))
+    ;;(false (xt-false expr))
+    (REC-EXPR (xt-rec-expr expr))
+    (TUPLE-EXPR (xt-tuple-expr expr))
+    (TERM-EXPR (xt-term-expr expr))
+    (UNARY-TERM-EXPR (xt-unary-term-expr expr))
+    (FIELDEX (xt-fieldex expr))
+    (PROJEX (xt-projex expr))
+    (FIELDAPPL (xt-fieldappl expr))
+    (PROJAPPL (xt-projappl expr))
+    ;;(intype (xt-intype expr))
+    (COERCION (xt-coercion expr))
+    (IF-EXPR (xt-if-expr expr))
+    (APPLICATION (xt-application expr))
+    (BIND-EXPR (xt-bind-expr expr))
+    (NAME-BIND-EXPR (xt-name-bind-expr expr))
+    (SET-EXPR (xt-set-expr expr))
+    (LET-EXPR (xt-let-expr expr))
+    (WHERE-EXPR (xt-where-expr expr))
+    (UPDATE-EXPR (xt-update-expr expr))
+    ;;(override-expr (xt-override-expr expr))
+    (CASES-EXPR (xt-cases-expr expr))
+    (COND-EXPR (xt-cond-expr expr))
+    (TABLE-EXPR (xt-table-expr expr))
+    (SKOVAR (xt-skovar expr))
+    (BRACK-EXPR (xt-brack-expr expr))
+    (PAREN-VBAR-EXPR (xt-paren-vbar-expr expr))
+    (BRACE-VBAR-EXPR (xt-brace-vbar-expr expr))
+    (t (error "Unrecognized expr - ~a" expr))))
+
+$$$coinduction_examples.pvs
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% AUTHOR:
+%  -------------------------------------------------------
+% | Lee Pike                     |                        |
+% | leepike @ galois.com         |                        |
+%  -------------------------------------------------------
+%
+% PVS 3.2
+%
+% PURPOSE: 
+% Introduce inductive and coinductive definitions and proof
+% principles in PVS.  The cannonical examples of lists
+% and streams are used toward this end.  At the end of the
+% theory, streams are defined again, using the built-in PVS
+% codatatype constructor.  The theory stream_cdt_codt.pvs theory
+% was automatically generated.
+%
+% NOTE: 
+% This is NOT a tutorial.  The interested reader is referred to
+% "A Tutorial on (Co)Algebras and (Co)Induction" by  Bart Jacobs 
+% and Jan Rutten (1997) available at 
+% http://citeseer.nj.nec.com/jacobs97tutorial.html .
+%
+% WARNING:
+% Coinduction defintions don't seem to be officially supported in 
+% PVS 3.2.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+coinduction_examples[T: TYPE+]: THEORY
+
+BEGIN
+
+LIST: TYPE+ 
+
+ls, ls1, ls2, ls11, ls21 : VAR LIST
+t, t1, t2                : VAR T
+
+empty: LIST
+cons(t, ls): LIST
+
+%--THE-THREE-DATA-STRUCTURES---------------------------------------
+% Every inductive and coinductive definition generates two induction
+% axioms (the standard one and a "weak" one) to use to prove facts 
+% about the (co)data-structures defined.  These can be viewed with
+% M-x prettyprint-expanded.
+
+% Finite lists (i.e., lists of finite length).
+list?(ls): INDUCTIVE bool =
+  ls = empty OR (EXISTS t, ls1: ls = cons(t, ls1) AND list?(ls1))
+
+% Finite and (countably) infinite lists.  Note the definition is
+% the same as for lists, but since we define these coinductively,
+% the largest set satisfying the definition is generated.
+stream?(ls): COINDUCTIVE bool =
+  ls = empty OR (EXISTS t, ls1: ls = cons(t, ls1) AND stream?(ls1))
+
+% Only infinite lists.  Note that there is no "base case."
+infinite_stream?(ls): COINDUCTIVE bool =
+  EXISTS t, ls1: ls = cons(t, ls1) AND infinite_stream?(ls1)
+
+%--RELATING-THE-STRUCTURES----------------------------------------
+list: LEMMA
+ list?(cons(t, cons(t, cons(t, empty))))
+
+stream: LEMMA
+ stream?(cons(t, cons(t, cons(t, empty))))
+
+% NOT PROVABLE.  A finite list isn't an infinite_stream.
+% infinite_stream: LEMMA
+%   infinite_stream?(cons(t, cons(t, cons(t, empty))))
+
+% PROVED TWICE--once with coinduction (on streams)  and
+% once with induction (on lists).  Use M-x display-proofs-formula
+% to see the two proofs, and use "s" in the buffer to display them.
+list_is_stream: LEMMA
+  list?(ls) IMPLIES stream?(ls)
+
+infinite_stream_is_stream: LEMMA
+  infinite_stream?(ls) IMPLIES stream?(ls)
+
+% NOT PROVABLE.  A stream may be of infinite length.
+% stream_is_list: LEMMA
+%   stream?(ls) IMPLIES list?(ls)
+
+%--BISIMULATION--------------------------------------------------
+bisimulation(ls1, ls2): COINDUCTIVE bool =
+  (ls1 = empty AND ls2 = empty) OR
+  (EXISTS t1, t2, ls11, ls21:
+     ls1 = cons(t1, ls11) AND  
+     ls2 = cons(t2, ls21) AND  
+     t1 = t2 AND
+     bisimulation(ls11, ls21))
+
+P(ls1, ls2): bool = stream?(ls1) AND stream?(ls2) AND ls1 = ls2
+
+% Bisimulation is defined coinductively, so it is the largest
+% such relation.  Therefore, by coinduction, equals is a 
+% bisimulation.
+equals_is_bisimulation: LEMMA
+  P(ls1, ls2) IMPLIES bisimulation(ls1, ls2)
+
+END coinduction_examples
+
+
+%--PVS-CO-DATATYPE-CONSTRUCTOR-----------------------------------
+% This definition of streams is not used above.  It is redefines
+% the infinite streams defined above using the built in 
+% co-datatype constructor.  Note that bisimulation, etc. are
+% automatically generated in the theory stream_cdt_codt.pvs.
+stream_cdt[T: TYPE+]: CODATATYPE
+
+BEGIN
+  stream(head: T, tail: stream_cdt) : stream? 
+END stream_cdt
+
+
+$$$coinduction_examples.prf
+(coinduction_examples
+ (inf_stream 0
+  (inf_stream-2 nil 3280847075 nil nil untried nil nil nil nil nil)
+  (inf_stream-1 nil 3280846079 3280847032
+   ("" (skosimp*)
+    (("" (expand "list?")
+      (("" (flatten) (("" (postpone) nil nil)) nil)) nil))
+    nil)
+   unfinished nil 9 10 t shostak))
+ (list 0
+       (list-1 nil 3280751054 3280847032
+        ("" (skosimp*)
+         (("" (expand "list?")
+           (("" (flatten)
+             (("" (inst + "t!1" "cons(t!1, cons(t!1, empty))")
+               (("" (expand "list?")
+                 (("" (flatten)
+                   (("" (inst + "t!1" "cons(t!1, empty)")
+                     (("" (expand "list?")
+                       (("" (flatten)
+                         (("" (inst?)
+                           (("" (expand "list?")
+                             (("" (propax) nil nil)) nil))
+                           nil))
+                         nil))
+                       nil))
+                     nil))
+                   nil))
+                 nil))
+               nil))
+             nil))
+           nil))
+         nil)
+        unchecked
+        ((list? inductive-decl "bool" coinduction_examples nil)
+         (T formal-nonempty-type-decl nil coinduction_examples nil)
+         (LIST nonempty-type-decl nil coinduction_examples nil)
+         (cons const-decl "LIST" coinduction_examples nil)
+         (empty const-decl "LIST" coinduction_examples nil))
+        61 40 t shostak))
+ (stream 0
+  (stream-2 nil 3280846208 3280847032
+   ("" (skosimp*)
+    (("" (expand "stream?")
+      (("" (flatten)
+        (("" (inst + "t!1" "cons(t!1, cons(t!1, empty))")
+          (("" (expand "stream?")
+            (("" (flatten)
+              (("" (inst + "t!1" "cons(t!1, empty)")
+                (("" (expand "stream?")
+                  (("" (flatten)
+                    (("" (inst?)
+                      (("" (expand "stream?") (("" (propax) nil nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   unchecked
+   ((list? inductive-decl "bool" coinduction_examples nil)
+    (stream? coinductive-decl "bool" coinduction_examples nil)
+    (T formal-nonempty-type-decl nil coinduction_examples nil)
+    (LIST nonempty-type-decl nil coinduction_examples nil)
+    (cons const-decl "LIST" coinduction_examples nil)
+    (empty const-decl "LIST" coinduction_examples nil))
+   43 40 nil nil)
+  (stream-1 nil 3280845537 3280846195
+   ("" (skosimp*)
+    (("" (expand "list?")
+      (("" (flatten)
+        (("" (inst + "t!1" "cons(t!1, cons(t!1, empty))")
+          (("" (expand "list?")
+            (("" (flatten)
+              (("" (inst + "t!1" "cons(t!1, empty)")
+                (("" (expand "list?")
+                  (("" (flatten)
+                    (("" (inst?)
+                      (("" (expand "list?") (("" (propax) nil nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   unfinished
+   ((list? inductive-decl "bool" coinduction_examples nil)
+    (T formal-nonempty-type-decl nil coinduction_examples nil)
+    (LIST nonempty-type-decl nil coinduction_examples nil)
+    (cons const-decl "LIST" coinduction_examples nil)
+    (empty const-decl "LIST" coinduction_examples nil))
+   4664 270 t shostak))
+ (list_is_stream 0
+  (list_is_stream-2 "using induction" 3280833978 3280847032
+   ("" (skosimp*)
+    (("" (lemma "list?_induction")
+      (("" (inst - "stream?")
+        (("" (split)
+          (("1" (inst?) (("1" (assert) nil nil)) nil)
+           ("2" (skosimp*)
+            (("2" (split)
+              (("1" (replace -)
+                (("1" (expand "stream?") (("1" (propax) nil nil)) nil))
+                nil)
+               ("2" (expand "stream?" 1)
+                (("2" (flatten)
+                  (("2" (skosimp*)
+                    (("2" (inst?)
+                      (("2" (split)
+                        (("1" (propax) nil nil) ("2" (propax) nil nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   unchecked
+   ((list? inductive-decl "bool" coinduction_examples nil)
+    (stream?_coinduction formula-decl nil coinduction_examples nil)
+    (list?_induction formula-decl nil coinduction_examples nil)
+    (T formal-nonempty-type-decl nil coinduction_examples nil)
+    (stream? coinductive-decl "bool" coinduction_examples nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (LIST nonempty-type-decl nil coinduction_examples nil))
+   65 50 t shostak)
+  (list_is_stream-1 nil 3280833341 3280833810
+   ("" (skosimp*)
+    (("" (lemma "stream?_coinduction")
+      (("" (inst?)
+        (("" (split)
+          (("1" (inst?) (("1" (assert) nil nil)) nil)
+           ("2" (skosimp*)
+            (("2" (expand "list?" -1)
+              (("2" (split)
+                (("1" (propax) nil nil)
+                 ("2" (skosimp*)
+                  (("2" (inst?)
+                    (("2" (split)
+                      (("1" (propax) nil nil) ("2" (flatten) nil nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((list?_induction formula-decl nil coinduction_examples nil)
+    (T formal-nonempty-type-decl nil coinduction_examples nil)
+    (stream? coinductive-decl "bool" coinduction_examples nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil))
+   13702 550 t shostak))
+ (infinite_stream_is_stream 0
+  (infinite_stream_is_stream-1 nil 3280846511 3280847032
+   ("" (skosimp*)
+    (("" (lemma "stream?_coinduction")
+      (("" (inst - "infinite_stream?")
+        (("" (split)
+          (("1" (inst?) (("1" (assert) nil nil)) nil)
+           ("2" (skosimp*)
+            (("2" (expand "infinite_stream?" -1)
+              (("2" (skosimp*)
+                (("2" (inst?)
+                  (("2" (split)
+                    (("1" (propax) nil nil) ("2" (flatten) nil nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   unchecked
+   ((stream?_coinduction formula-decl nil coinduction_examples nil)
+    (T formal-nonempty-type-decl nil coinduction_examples nil)
+    (infinite_stream? coinductive-decl "bool" coinduction_examples nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (LIST nonempty-type-decl nil coinduction_examples nil))
+   54 40 t shostak))
+ (equals_is_bisimulation 0
+  (equals_is_bisimulation-1 nil 3280847083 3280855213
+   ("" (skosimp*)
+    (("" (lemma "bisimulation_coinduction")
+      (("" (inst?)
+        (("" (split)
+          (("1" (inst?) (("1" (assert) nil nil)) nil)
+           ("2" (skosimp*)
+            (("2" (expand "P" -1)
+              (("2" (flatten)
+                (("2" (replace -3)
+                  (("2" (expand "stream?")
+                    (("2" (split -1)
+                      (("1" (split 1)
+                        (("1" (propax) nil nil) ("2" (propax) nil nil))
+                        nil)
+                       ("2" (skosimp*)
+                        (("2" (inst?)
+                          (("2" (inst?)
+                            (("2" (split 2)
+                              (("1" (propax) nil nil)
+                               ("2" (propax) nil nil)
+                               ("3"
+                                (flatten)
+                                (("3"
+                                  (expand "P" 2)
+                                  (("3"
+                                    (split 2)
+                                    (("1" (propax) nil nil)
+                                     ("2" (propax) nil nil))
+                                    nil))
+                                  nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((bisimulation_coinduction formula-decl nil coinduction_examples nil)
+    (T formal-nonempty-type-decl nil coinduction_examples nil)
+    (stream? coinductive-decl "bool" coinduction_examples nil)
+    (P const-decl "bool" coinduction_examples nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (LIST nonempty-type-decl nil coinduction_examples nil))
+   358857 5930 t shostak)))
+

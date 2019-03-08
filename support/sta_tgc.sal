@@ -1,0 +1,227 @@
+% -----------------------------------------------------------
+% Lee Pike
+% leepike @ galois.com
+%
+% SAL 2.3
+%
+% Adapted from the TGC model in SAL by B. Dutertre and 
+% M.Sorea, in "Timed Systems in SAL," Technical Report 
+% SRI-SDL-04-03, July 2004.
+% -----------------------------------------------------------
+sta_tgc: CONTEXT =
+BEGIN
+
+SIGNAL              : TYPE = {approach, exit, lower, 
+                              raise, null};
+TIME                : TYPE = REAL;
+N                   : NATURAL = 3;
+INDEX               : TYPE = [1..N];
+TIMEOUT_ARRAY       : TYPE = ARRAY INDEX OF TIME;
+
+T_STATE: TYPE = {t0, t1, t2, t3};
+G_STATE: TYPE = {g0, g1, g2, g3};
+C_STATE: TYPE = {c0, c1, c2, c3};
+
+to_min(t1: TIME, t2: TIME, t3: TIME): TIME = 
+  min(t1, min(t2, t3));
+
+%---------------------------------------------------------
+% Clock module: makes time elapse up to the next timeout
+%---------------------------------------------------------
+clock: MODULE =
+ BEGIN
+  INPUT 
+    t_timeout       : TIME,
+    c_timeout       : TIME, 
+    g_timeout       : TIME
+  OUTPUT time: TIME
+  INITIALIZATION time = 0
+    TRANSITION
+      [ time_elapses: 
+       time < to_min(t_timeout, c_timeout, g_timeout) 
+       --> 
+         time' = to_min(t_timeout, c_timeout, g_timeout)
+      ]
+ END;
+
+%---------------------------------------------------------
+% Train module
+%---------------------------------------------------------
+train: MODULE =
+BEGIN
+ INPUT
+    time            : TIME, 
+    c_state         : C_STATE
+ OUTPUT
+    t_timeout       : TIME,
+    msg1            : SIGNAL
+  LOCAL
+    reset           : TIME,
+    t_state         : T_STATE
+ INITIALIZATION
+    t_state = t0;
+    msg1 = null;
+ TRANSITION
+    [ t0_t1:
+         t_state = t0 
+     AND t_timeout = time
+     AND c_state = c0
+     -->
+        t_state' = t1;
+        msg1' = approach;
+        reset' = time + 5;
+        t_timeout' IN { x: TIME |     time + 2 < x 
+                                  AND x <= time + 5}
+   [] t1_t2:
+         t_state = t1 
+     AND t_timeout = time
+     -->
+        msg1' = null;
+        t_state' = t2;
+        t_timeout' IN { x: TIME |     time < x 
+                                  AND x <= reset}
+   [] t2_t3:
+         t_state = t2 
+     AND t_timeout = time
+     -->
+        msg1' = null;
+        t_state' = t3;
+        t_timeout' IN { x: TIME |     time < x 
+                                  AND x <= reset}
+   [] t3_t0:
+         t_state = t3 
+     AND t_timeout = time
+     AND c_state = c2
+     -->
+        t_state' = t0;
+        msg1' = exit;
+        t_timeout' IN { x: TIME | time < x}
+   [] 
+     ELSE --> 
+    ]
+ END;
+
+%---------------------------------------------------------
+% GATE module
+%---------------------------------------------------------
+gate: MODULE =
+BEGIN
+ INPUT
+    time            : TIME,
+    c_timeout       : TIME,
+    msg2            : SIGNAL
+ OUTPUT
+    g_timeout       : TIME,
+    g_state         : G_STATE
+ INITIALIZATION
+    g_state = g0;
+ TRANSITION
+    [ g0_g1:
+         g_state = g0 
+     AND msg2' = lower 
+     AND c_timeout = time
+     -->
+        g_state' = g1;
+        g_timeout' IN { x: TIME |     time < x 
+                                  AND x <= time + 1}
+   [] g1_g2:
+         g_state = g1 
+     AND g_timeout = time
+     -->
+        g_state' = g2;
+        g_timeout' IN { x: TIME | time < x }
+   [] g2_g3:
+         g_state = g2
+     AND msg2' = raise 
+     AND c_timeout = time
+     -->
+        g_state' = g3;
+        g_timeout' IN { x: TIME |     time + 1 <= x 
+                                  AND x <= time + 2}
+   [] g3_g0:
+         g_state = g3 
+     AND g_timeout = time
+     -->
+        g_state' = g0;
+        g_timeout' IN { x: TIME | time < x}
+   [] 
+     ELSE -->
+    ]
+ END;
+
+%---------------------------------------------------------
+% Controller module
+%---------------------------------------------------------
+controller : MODULE =
+BEGIN
+ INPUT
+    time            : TIME,
+    t_timeout       : TIME,
+    msg1            : SIGNAL,
+    g_state         : G_STATE
+ OUTPUT
+    c_timeout       : TIME,
+    msg2            : SIGNAL,
+    c_state         : C_STATE
+ INITIALIZATION
+    c_state = c0;
+    msg2 = null;
+ TRANSITION
+    [ c0_c1:
+         c_state = c0 
+     AND t_timeout = time
+     AND msg1' = approach 
+     -->
+        c_state' = c1;
+        c_timeout' = time + 1
+   [] c1_c2:
+         c_state = c1 
+     AND c_timeout = time
+     AND g_state = g0
+		 -->
+        c_state' = c2;
+        msg2' = lower;
+        c_timeout' IN { x: TIME | time < x }
+   [] c2_c3:
+         c_state = c2 
+     AND msg1' = exit
+     AND t_timeout = time
+     -->
+        c_state' = c3;
+        c_timeout' IN { x: TIME |     time < x 
+                                  AND x <= time + 1}
+   [] c3_c0:
+         c_state = c3 
+     AND c_timeout = time
+     AND g_state = g2
+     -->
+        c_state' = c0;
+        msg2' = raise;
+        c_timeout' IN { x: TIME | time < x}
+   [] 
+     ELSE -->
+      ]
+   END;
+
+tgc: MODULE = train || gate || controller;
+
+system: MODULE = clock [] tgc;
+
+%---------------------------------------------------------
+% properties
+%---------------------------------------------------------
+% sal-inf-bmc -i --acyclic -d 9 sta_tgc.sal safe
+safe: LEMMA system |- G(t_state = t2 => g_state = g2);
+
+%---------------------------------------------------------
+% liveness checks
+%---------------------------------------------------------
+tstate2: LEMMA system |- G(t_state /= t2);
+gstate2: LEMMA system |- G(g_state /= g2);
+cstate2: LEMMA system |- G(c_state /= c2);
+
+tstate3: LEMMA system |- G(t_state /= t3);
+gstate3: LEMMA system |- G(g_state /= g3);
+cstate3: LEMMA system |- G(c_state /= c3);
+
+END

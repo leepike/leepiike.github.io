@@ -1,0 +1,286 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown @ cs.indiana.edu>           %%
+%% Lee Pike, Galois Connections <leepike @ galois.com>                      %%
+%% Copyright, 2005                                                          %%
+%%                                                                          %%
+%% SAL 2.3 (2.4 compatible)                                                 %%
+%%                                                                          %%
+%% Fully parameterized specification and verification of a                  %%
+%% Biphase Mark decoder.                                                    %%
+%%                                                                          %%
+%% A paper describing this specification, to appear in TACAS 2006 is        %%
+%% available from the authors.                                              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+biphase_full: CONTEXT =
+
+BEGIN
+
+  TIME : TYPE = REAL;
+
+  TPERIOD      :     { x : REAL | 0 < x };
+  TSETTLE      :     { x : REAL | 0 <= x AND x < TPERIOD };
+  TSTABLE      :     TIME = TPERIOD - TSETTLE;
+
+  RSCANMIN :  { x: TIME | 0 < x }; 
+  RSCANMAX :  { x: TIME | RSCANMIN <= x AND x < TPERIOD - TSETTLE};
+  RSAMPMIN :  { x : TIME | TPERIOD + TSETTLE < x };
+  RSAMPMAX :  { x : TIME | RSAMPMIN <= x AND x < 2 * TPERIOD - TSETTLE - RSCANMAX };
+
+%%%
+%%% Deriving constraints on TSAMPLE and ERROR:
+%%%
+% Now, if we define
+%
+% RSCANMIN = 1 - ERROR;
+% RSCANMAX = 1 + ERROR;
+% RSAMPMIN = TSAMPLE * (1 - ERROR)
+% RSAMPMAX = TSAMPLE * (1 + ERROR)
+%
+% We can compute the bounds on ERROR and TSAMPLE as follows:
+%
+% (a) TSAMPLE * (1 + ERROR) + (1 + ERROR) + TSETTLE <  2 * TPERIOD
+% (b) TPERIOD + TSETTLE < TSAMPLE * (1 - ERROR)
+%
+% Setting error to 0 in (a),  we get
+%
+% TSAMPLE + 1 + TSETTLE < 2 * TPERIOD
+%
+% Setting error to 0 in (b), we get
+%
+% TPERIOD + TSETTLE < TSAMPLE
+
+%---------------------------------------------------------
+%  Clock module: makes time elapse up to the next timeout
+%---------------------------------------------------------
+
+  clock: MODULE = 
+    BEGIN
+      INPUT  rclk : TIME
+      INPUT  tclk : TIME
+      OUTPUT time : TIME
+    INITIALIZATION
+      time = 0
+
+    TRANSITION
+      [ 
+        timeeqrclk:
+         time < rclk AND rclk <= tclk --> time' = rclk
+      []
+        timeeqtclk:
+         time < tclk AND tclk <= rclk --> time' = tclk
+      ]
+    END;
+
+%---------------------
+%  
+% Transmitter
+%
+%---------------------
+
+  PHASE:  TYPE = { Stable, Settle };
+  WIRE:   TYPE = { Zero, One, ToZero, ToOne };
+
+  tclock : MODULE =
+    BEGIN
+
+       INPUT  time   : TIME
+       OUTPUT tclk   : TIME
+       OUTPUT phase  : PHASE
+  
+    INITIALIZATION
+
+       phase = Stable;
+       tclk  IN {x : TIME | 0 <= x AND x <= TSTABLE};
+
+    TRANSITION
+           [
+              time = tclk AND phase = Stable -->
+                     tclk' = time + TSETTLE;
+                     phase' = Settle;
+                     
+           [] time = tclk AND phase = Settle -->
+                     tclk' = time + TSTABLE;
+                     phase' = Stable;
+           ]
+     END;
+
+  tenv : MODULE = 
+     BEGIN
+       INPUT   tready : BOOLEAN
+       OUTPUT  tbit   : [0..1]
+
+       INITIALIZATION
+
+               tbit = 1;
+
+       TRANSITION
+       [
+           tready --> tbit' IN {0,1};
+       []  ELSE   --> tbit' = tbit;
+       ]
+     END;
+
+  tenc : MODULE = 
+     BEGIN
+       INPUT  phase       : PHASE
+       OUTPUT tdata       : WIRE
+       OUTPUT tstate      : [0..1]
+       OUTPUT tready      : BOOLEAN
+       INPUT  tbit        : [0..1]
+       LOCAL  ttoggle     : WIRE
+
+       INITIALIZATION
+
+         tdata  = One;
+         tstate = 1;
+
+       DEFINITION
+
+         tready  = phase = Stable AND tstate = 1;
+         ttoggle = IF (tdata = Zero) THEN ToOne ELSE ToZero ENDIF;
+
+       TRANSITION
+       [
+          phase = Stable AND tstate = 1 --> 
+                       tdata' = ttoggle;
+                       tstate' = 0;
+       [] phase = Stable AND tstate = 0 --> 
+                       tdata' = IF (tbit = 1) THEN ttoggle ELSE tdata ENDIF;
+                       tstate' = 1;
+       [] phase = Settle --> 
+                       tdata' = IF tdata = ToOne THEN
+                                    One 
+                                ELSIF tdata = ToZero THEN
+                                    Zero 
+                                ELSE 
+                                    tdata 
+                                ENDIF;
+       ]
+  END;
+
+  tx : MODULE = tclock || tenc || tenv;
+
+  sample(w : WIRE) : [WIRE -> BOOLEAN] = IF (w = ToZero OR w = ToOne) THEN
+                                                    {Zero, One} 
+                                         ELSE 
+                                                    {w} 
+                                        ENDIF;
+
+  timeout (min : TIME, max : TIME) : [TIME -> BOOLEAN]  = 
+                  { x : TIME | min <= x AND x <=  max};
+
+
+  rclock : MODULE  =
+         BEGIN
+          INPUT time      : TIME
+          INPUT rstate    : [1..2]
+          OUTPUT rclk     : TIME
+
+         INITIALIZATION
+
+             rclk IN { x : TIME | 0 <= x AND x < RSCANMAX };   
+
+         TRANSITION
+         [
+          time = rclk --> 
+                     rclk' IN IF (rstate' = 2) THEN
+                        timeout(time + RSCANMIN, time + RSCANMAX)  
+                      ELSE
+                         timeout(time + RSAMPMIN, time + RSAMPMAX)
+                      ENDIF;
+
+         ]
+         END;
+
+  rdec  : MODULE = 
+         BEGIN
+           INPUT  tdata     : WIRE
+           OUTPUT rdata     : WIRE
+           OUTPUT rstate    : [1..2]
+           OUTPUT rbit      : [0..1]
+
+       INITIALIZATION
+
+         rstate  = 2;
+         rdata = One;
+         rbit  = 1;
+
+       TRANSITION
+          [
+             rstate = 1  -->  
+                    rdata' IN sample(tdata);
+                    rbit' = IF (rdata = rdata') THEN 0 ELSE 1 ENDIF;    
+                    rstate' = 2;
+          [] rstate = 2  -->
+                   rdata' IN sample(tdata);
+                   rstate' = IF (rdata = rdata') THEN 2 ELSE 1 ENDIF;
+          ]
+       END;
+
+     rx : MODULE = rclock || rdec;
+
+     system : MODULE = clock [] rx [] tx;
+
+% sal-inf-bmc -d 1 -i biphase_full.sal l0
+% sal-inf-bmc -d 1 -i biphase_full.sal l1
+% sal-inf-bmc -d 1 -i biphase_full.sal l2
+  l0 : LEMMA system |- G(phase = Settle OR tdata  = One OR tdata = Zero);
+  l1 : LEMMA system |- G(phase = Stable => (tclk <= (time + TSTABLE)));
+  l2 : LEMMA system |- G(phase = Settle => (tclk <= (time + TSETTLE)));
+
+% sal-inf-bmc -d 5 -i -l l0 -l l1 -l l2 biphase_full.sal t0
+  t0:  THEOREM system |- G(
+       ((phase = Settle) AND
+        (rstate = tstate + 1) AND
+        (rclk - tclk - TPERIOD > 0) AND
+        (tclk + TPERIOD + TSTABLE - rclk > 0))
+       OR
+        ((phase = Stable) AND
+         (rstate = tstate + 1) AND
+         (rclk - tclk - TSETTLE > 0) AND
+         (tclk + TPERIOD - rclk > 0) AND (rdata = tdata))
+       OR
+        ((phase = Settle) AND
+         (rstate = tstate) AND
+         (rclk - tclk > 0) AND
+         (tclk + TSTABLE - rclk > 0))
+       OR
+        ((phase = Stable) AND
+         (rstate = tstate) AND
+     	 ((tbit = 0 AND rdata = tdata) OR
+          (tbit = 1 AND rdata /= tdata)) AND
+         (tclk  - rclk > 0))
+       OR            
+        ((rstate = 2) AND 
+         (tstate = 1) AND
+          (tdata = rdata) AND 
+          (phase = Stable) AND
+          (rclk <= time + RSCANMAX))
+       OR
+         ((rstate = 2) AND 
+          (tstate = 0) AND 
+          ((tdata = ToOne AND rdata = Zero) OR 
+           (tdata = ToZero AND rdata = One)) AND
+          (phase = Settle) AND 
+          (rclk <= time + RSCANMAX))
+       OR
+         ((rstate = 2) AND 
+          (tstate = 0) AND 
+          (tdata /= rdata) AND
+         (phase = Stable) AND
+         (tclk - rclk >= TSTABLE - RSCANMAX)));
+
+
+
+% sal-inf-bmc -d 2 -i -l t0 biphase_full.sal BMP_Thm
+  BMP_Thm : THEOREM system |- G( rstate = 1 AND time = rclk => (time /= tclk) AND
+                                                          (tstate = 1) AND
+                                                          X(rbit = tbit));
+END
+
+                                 
+
+                                   
+       
+                                                     

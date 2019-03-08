@@ -1,0 +1,113 @@
+% -----------------------------------------------------------
+% Lee Pike
+% NASA Langley Formal Methods Group
+% lepike@indiana.edu
+%
+% SAL 2.4
+% -----------------------------------------------------------
+opt: CONTEXT =
+BEGIN
+
+REALTIME            : TYPE = REAL;
+CLOCKTIME           : TYPE = INTEGER;
+OFFSET              : TYPE = {T: CLOCKTIME | T >= 0};
+RND                 : TYPE = NATURAL; 
+rho                 : REALTIME = 1/10000; 
+d_nom               : {t: REALTIME | t >= 0} = 10; 
+ERROR               : TYPE = {t: REALTIME |     t >= 0 
+                                            AND t < d_nom};
+e_l                 : ERROR = 5/10000; 
+e_u                 : ERROR = 5/10000; 
+% floor((1 - rho) * (d_nom - e_l))
+fl_d_min            : CLOCKTIME = 9;
+% ceiling((1 + rho) * (d_nom + e_u))
+ce_d_max            : CLOCKTIME = 11;
+
+independent?(r: RND): BOOLEAN = r > 0; 
+
+% -- constraints on time-triggered systems ------------------
+constraint1(P: OFFSET, pre_sched: CLOCKTIME, 
+            sched: CLOCKTIME): BOOLEAN = 
+  0 < P AND P < sched - pre_sched;
+
+constraint2(D: CLOCKTIME, S: OFFSET): BOOLEAN = 
+  D >= S - fl_d_min;
+
+constraint3(P: OFFSET, D: CLOCKTIME, S: OFFSET): BOOLEAN = 
+  P > D + S + ce_d_max;
+
+constraint4(r: RND, D: CLOCKTIME): BOOLEAN = 
+  (NOT independent?(r)) => D >= 0;
+
+constraint5(pre_P: OFFSET, D: CLOCKTIME, pre_sched: CLOCKTIME, 
+            sched: CLOCKTIME): BOOLEAN =
+  D >= pre_P - sched + pre_sched;
+
+constraint6(D: CLOCKTIME, R: CLOCKTIME, S: OFFSET): BOOLEAN = 
+  R - 1 <= D + fl_d_min - S;
+% -----------------------------------------------------------
+
+SYSTEM: MODULE =
+BEGIN
+LOCAL
+  r                      : RND,
+  sched, D               : CLOCKTIME, 
+  P, S, R                : OFFSET,    
+  ind                    : BOOLEAN,   
+  c1, c2, c3, c4, c5, c6 : BOOLEAN
+INITIALIZATION
+   r                 = 0;
+  sched             = 2;
+  D                 = 1;
+  P                 = 18; 
+  S                 IN {T: OFFSET | T <=3}; 
+  R                 = 2;
+
+  c1                = TRUE; 
+  c2                = constraint2(D, S);
+  c3                = constraint3(P, D, S);
+  c4                = constraint4(r, D);
+  c5                = TRUE;
+  c6                = constraint6(D, R, S)
+TRANSITION
+[
+    r <= 4
+    -->
+      r' = r+1;
+      sched' = sched+20;
+      D' = -2;
+      R' = 0;
+      P' = 15;
+
+      c1' = constraint1(P', sched, sched');
+      c2' = constraint2(D', S');
+      c3' = constraint3(P', D', S');
+      c4' = constraint4(r', D');
+      c5' = constraint5(P, D', sched, sched');
+      c6' = constraint6(D', R', S')
+ []
+    r = 5
+    -->
+      r' = 0; 
+      sched' = sched+20;
+      D' = 0;
+      R' = 0;
+      P' = 15;
+
+      c1' = constraint1(P', sched, sched');
+      c2' = constraint2(D', S');
+      c3' = constraint3(P', D', S');
+      c4' = constraint4(r', D');
+      c5' = constraint5(P, D', sched, sched');
+      c6' = constraint6(D', R', S')
+]
+END;
+
+% sal-inf-bmc -i -d 7 opt.sal constraints
+constraints: LEMMA SYSTEM |- G(    c1 AND c2 AND c3 
+                               AND c4 AND c5 AND c6);
+
+% For k >= 0, the following should be false:
+% sal-inf-bmc -i -d k opt.sal liveness
+liveness: LEMMA SYSTEM |- G(r <= 4);
+END

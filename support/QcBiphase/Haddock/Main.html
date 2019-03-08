@@ -1,0 +1,476 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--Rendered using the Haskell Html Library v0.2-->
+<HTML
+><HEAD
+><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"
+><TITLE
+>Main</TITLE
+><LINK HREF="haddock.css" REL="stylesheet" TYPE="text/css"
+><SCRIPT SRC="haddock-util.js" TYPE="text/javascript"
+></SCRIPT
+><SCRIPT TYPE="text/javascript"
+>window.onload = function () {setSynopsis("mini_Main.html")};</SCRIPT
+></HEAD
+><BODY
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="topbar"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD
+><IMG SRC="haskell_icon.gif" WIDTH="16" HEIGHT="16" ALT=" "
+></TD
+><TD CLASS="title"
+></TD
+><TD CLASS="topbut"
+><A HREF="index.html"
+>Contents</A
+></TD
+><TD CLASS="topbut"
+><A HREF="doc-index.html"
+>Index</A
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="modulebar"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD
+><FONT SIZE="6"
+>Main</FONT
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="section1"
+>Synopsis</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Aiter"
+>iter</A
+> :: Integer</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Aprop_correct"
+>prop_correct</A
+> :: Bool -&gt; Property</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Aprop_incorrect"
+>prop_incorrect</A
+> :: Bool -&gt; Property</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AbitsEq"
+>bitsEq</A
+> :: (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AassertFinal"
+>assertFinal</A
+> :: Bool -&gt; <A HREF="Main.html#t%3AParamGen"
+>ParamGen</A
+> -&gt; ((<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; Bool) -&gt; Property</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A HREF="#t%3AParamGen"
+>ParamGen</A
+> = (<A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; PropertyM IO ()) -&gt; PropertyM IO ()</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AforallValidParams"
+>forallValidParams</A
+> :: <A HREF="Main.html#t%3AParamGen"
+>ParamGen</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AgenParams"
+>genParams</A
+> :: Gen <A HREF="Biphase.html#t%3AParams"
+>Params</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AcorrectParams"
+>correctParams</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AforallInvalidParams"
+>forallInvalidParams</A
+> :: <A HREF="Main.html#t%3AParamGen"
+>ParamGen</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AbadGenParams"
+>badGenParams</A
+> :: Gen <A HREF="Biphase.html#t%3AParams"
+>Params</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AincorrectParams"
+>incorrectParams</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Bool</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="section1"
+>Documentation</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:iter"
+><A NAME="v%3Aiter"
+></A
+></A
+><B
+>iter</B
+> :: Integer</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Number of rounds to execute
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:prop_correct"
+><A NAME="v%3Aprop_correct"
+></A
+></A
+><B
+>prop_correct</B
+> :: Bool -&gt; Property</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Property should always hold for good parameters.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:prop_incorrect"
+><A NAME="v%3Aprop_incorrect"
+></A
+></A
+><B
+>prop_incorrect</B
+> :: Bool -&gt; Property</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Testing should fail on this property for some 
+ percentage of tests.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:bitsEq"
+><A NAME="v%3AbitsEq"
+></A
+></A
+><B
+>bitsEq</B
+> :: (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Did the receiver get the bits sent by the sender upon 
+ synchronizing?
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:assertFinal"
+><A NAME="v%3AassertFinal"
+></A
+></A
+><B
+>assertFinal</B
+> :: Bool -&gt; <A HREF="Main.html#t%3AParamGen"
+>ParamGen</A
+> -&gt; ((<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; Bool) -&gt; Property</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Note: monadicIO (from QuickCheck) uses unsafeperformIO.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A NAME="t:ParamGen"
+><A NAME="t%3AParamGen"
+></A
+></A
+><B
+>ParamGen</B
+> = (<A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; PropertyM IO ()) -&gt; PropertyM IO ()</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:forallValidParams"
+><A NAME="v%3AforallValidParams"
+></A
+></A
+><B
+>forallValidParams</B
+> :: <A HREF="Main.html#t%3AParamGen"
+>ParamGen</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Generating correct params is <A HREF="too hard.html"
+>too hard</A
+> to do 
+ procedurally, so we get close and then use a 
+ predicate to make sure we're only testing correct ones.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:genParams"
+><A NAME="v%3AgenParams"
+></A
+></A
+><B
+>genParams</B
+> :: Gen <A HREF="Biphase.html#t%3AParams"
+>Params</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Generate *almost* correct realtime parameters --- it's an 
+ overapproximation.  We need to test them to ensure 
+ correctness.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:correctParams"
+><A NAME="v%3AcorrectParams"
+></A
+></A
+><B
+>correctParams</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Constraints are satisfied.  Reproduced for genParams.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:forallInvalidParams"
+><A NAME="v%3AforallInvalidParams"
+></A
+></A
+><B
+>forallInvalidParams</B
+> :: <A HREF="Main.html#t%3AParamGen"
+>ParamGen</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:badGenParams"
+><A NAME="v%3AbadGenParams"
+></A
+></A
+><B
+>badGenParams</B
+> :: Gen <A HREF="Biphase.html#t%3AParams"
+>Params</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:incorrectParams"
+><A NAME="v%3AincorrectParams"
+></A
+></A
+><B
+>incorrectParams</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="botbar"
+>Produced by <A HREF="http://www.haskell.org/haddock/"
+>Haddock</A
+> version 2.4.2</TD
+></TR
+></TABLE
+></BODY
+></HTML
+>

@@ -1,0 +1,1707 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--Rendered using the Haskell Html Library v0.2-->
+<HTML
+><HEAD
+><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"
+><TITLE
+>Biphase</TITLE
+><LINK HREF="haddock.css" REL="stylesheet" TYPE="text/css"
+><SCRIPT SRC="haddock-util.js" TYPE="text/javascript"
+></SCRIPT
+><SCRIPT TYPE="text/javascript"
+>window.onload = function () {setSynopsis("mini_Biphase.html")};</SCRIPT
+></HEAD
+><BODY
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="topbar"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD
+><IMG SRC="haskell_icon.gif" WIDTH="16" HEIGHT="16" ALT=" "
+></TD
+><TD CLASS="title"
+></TD
+><TD CLASS="topbut"
+><A HREF="index.html"
+>Contents</A
+></TD
+><TD CLASS="topbut"
+><A HREF="doc-index.html"
+>Index</A
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="modulebar"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD
+><FONT SIZE="6"
+>Biphase</FONT
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="section1"
+>Synopsis</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A HREF="#t%3ATime"
+>Time</A
+> = Double</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A HREF="#t%3AParams"
+>Params</A
+>  = <A HREF="#v%3AParams"
+>Params</A
+> {<TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AtPeriod"
+>tPeriod</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AtSettle"
+>tSettle</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3ArScanMin"
+>rScanMin</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3ArScanMax"
+>rScanMax</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3ArSampMin"
+>rSampMin</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3ArSampMax"
+>rSampMax</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+></TABLE
+>}</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A HREF="#t%3ATState"
+>TState</A
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+>= <A HREF="#v%3ASendFirst"
+>SendFirst</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+>| <A HREF="#v%3ASendSecond"
+>SendSecond</A
+></TD
+></TR
+></TABLE
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A HREF="#t%3ATx"
+>Tx</A
+>  = <A HREF="#v%3ATx"
+>Tx</A
+> {<TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Atstate"
+>tstate</A
+> :: <A HREF="Biphase.html#t%3ATState"
+>TState</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Atsignal"
+>tsignal</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Atbit"
+>tbit</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Achanging"
+>changing</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Atclk"
+>tclk</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+></TABLE
+>}</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A HREF="#t%3ARState"
+>RState</A
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+>= <A HREF="#v%3ARcvFirst"
+>RcvFirst</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+>| <A HREF="#v%3ARcvSecond"
+>RcvSecond</A
+></TD
+></TR
+></TABLE
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A HREF="#t%3ARx"
+>Rx</A
+>  = <A HREF="#v%3ARx"
+>Rx</A
+> {<TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Arstate"
+>rstate</A
+> :: <A HREF="Biphase.html#t%3ARState"
+>RState</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Arsignal"
+>rsignal</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Arbit"
+>rbit</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Arclk"
+>rclk</A
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Asynch"
+>synch</A
+> :: Bool</TD
+></TR
+></TABLE
+>}</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3ArandomRng"
+>randomRng</A
+> :: (<A HREF="Biphase.html#t%3ATime"
+>Time</A
+>, <A HREF="Biphase.html#t%3ATime"
+>Time</A
+>) -&gt; IO <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AinitTx"
+>initTx</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AinitRclock"
+>initRclock</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AinitRx"
+>initRx</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Atenv"
+>tenv</A
+> :: <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Atenc"
+>tenc</A
+> :: <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Atclock"
+>tclock</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AtxUpdate"
+>txUpdate</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Arclock"
+>rclock</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Astable"
+>stable</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Ardec"
+>rdec</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3ArxUpdate"
+>rxUpdate</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Atransition"
+>transition</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AputLnState"
+>putLnState</A
+> :: Integer -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO ()</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AstopState"
+>stopState</A
+> :: <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AexecToStopState"
+>execToStopState</A
+> :: Bool -&gt; <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Integer -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Aexec"
+>exec</A
+> :: Bool -&gt; <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Integer -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AstartExec"
+>startExec</A
+> :: Bool -&gt; <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Integer -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AinitState"
+>initState</A
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="section1"
+>Documentation</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A NAME="t:Time"
+><A NAME="t%3ATime"
+></A
+></A
+><B
+>Time</B
+> = Double</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A NAME="t:Params"
+><A NAME="t%3AParams"
+></A
+></A
+><B
+>Params</B
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="ndoc"
+>Realtime input parameters.
+</TD
+></TR
+><TR
+><TD CLASS="section4"
+>Constructors</TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="5" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:Params"
+><A NAME="v%3AParams"
+></A
+></A
+><B
+>Params</B
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="body" COLSPAN="2"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:tPeriod"
+><A NAME="v%3AtPeriod"
+></A
+></A
+><B
+>tPeriod</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Tx's clock period.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:tSettle"
+><A NAME="v%3AtSettle"
+></A
+></A
+><B
+>tSettle</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Nominal signal settling time.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:rScanMin"
+><A NAME="v%3ArScanMin"
+></A
+></A
+><B
+>rScanMin</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Rx's min scan duration.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:rScanMax"
+><A NAME="v%3ArScanMax"
+></A
+></A
+><B
+>rScanMax</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Rx's max scan duration.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:rSampMin"
+><A NAME="v%3ArSampMin"
+></A
+></A
+><B
+>rSampMin</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Rx's min sampling duration.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:rSampMax"
+><A NAME="v%3ArSampMax"
+></A
+></A
+><B
+>rSampMax</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Rx's max sampling duration.
+</TD
+></TR
+></TABLE
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="section4"
+><IMG SRC="minus.gif" CLASS="coll" ONCLICK="toggle(this,'i:Params')" ALT="show/hide"
+> Instances</TD
+></TR
+><TR
+><TD CLASS="body"
+><DIV ID="i:Params" STYLE="display:block;"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+>Eq <A HREF="Biphase.html#t%3AParams"
+>Params</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+>Show <A HREF="Biphase.html#t%3AParams"
+>Params</A
+></TD
+></TR
+></TABLE
+></DIV
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A NAME="t:TState"
+><A NAME="t%3ATState"
+></A
+></A
+><B
+>TState</B
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="section4"
+>Constructors</TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:SendFirst"
+><A NAME="v%3ASendFirst"
+></A
+></A
+><B
+>SendFirst</B
+></TD
+><TD CLASS="rdoc"
+>Sending the 1st datum; 
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:SendSecond"
+><A NAME="v%3ASendSecond"
+></A
+></A
+><B
+>SendSecond</B
+></TD
+><TD CLASS="rdoc"
+>Sending the 2nd.
+</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="section4"
+><IMG SRC="minus.gif" CLASS="coll" ONCLICK="toggle(this,'i:TState')" ALT="show/hide"
+> Instances</TD
+></TR
+><TR
+><TD CLASS="body"
+><DIV ID="i:TState" STYLE="display:block;"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+>Eq <A HREF="Biphase.html#t%3ATState"
+>TState</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+>Show <A HREF="Biphase.html#t%3ATState"
+>TState</A
+></TD
+></TR
+></TABLE
+></DIV
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A NAME="t:Tx"
+><A NAME="t%3ATx"
+></A
+></A
+><B
+>Tx</B
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="section4"
+>Constructors</TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="5" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:Tx"
+><A NAME="v%3ATx"
+></A
+></A
+><B
+>Tx</B
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="body" COLSPAN="2"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:tstate"
+><A NAME="v%3Atstate"
+></A
+></A
+><B
+>tstate</B
+> :: <A HREF="Biphase.html#t%3ATState"
+>TState</A
+></TD
+><TD CLASS="rdoc"
+>Tx's state.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:tsignal"
+><A NAME="v%3Atsignal"
+></A
+></A
+><B
+>tsignal</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Signal being sent.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:tbit"
+><A NAME="v%3Atbit"
+></A
+></A
+><B
+>tbit</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Encoded bit to be sent.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:changing"
+><A NAME="v%3Achanging"
+></A
+></A
+><B
+>changing</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>T: modulating the signal; F o/w.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:tclk"
+><A NAME="v%3Atclk"
+></A
+></A
+><B
+>tclk</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Tx's timeout.
+</TD
+></TR
+></TABLE
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="section4"
+><IMG SRC="minus.gif" CLASS="coll" ONCLICK="toggle(this,'i:Tx')" ALT="show/hide"
+> Instances</TD
+></TR
+><TR
+><TD CLASS="body"
+><DIV ID="i:Tx" STYLE="display:block;"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+>Eq <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+>Show <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+></TABLE
+></DIV
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A NAME="t:RState"
+><A NAME="t%3ARState"
+></A
+></A
+><B
+>RState</B
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="section4"
+>Constructors</TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:RcvFirst"
+><A NAME="v%3ARcvFirst"
+></A
+></A
+><B
+>RcvFirst</B
+></TD
+><TD CLASS="rdoc"
+>Expecting the 1st datum; 
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:RcvSecond"
+><A NAME="v%3ARcvSecond"
+></A
+></A
+><B
+>RcvSecond</B
+></TD
+><TD CLASS="rdoc"
+>Expecting the 2nd.
+</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="section4"
+><IMG SRC="minus.gif" CLASS="coll" ONCLICK="toggle(this,'i:RState')" ALT="show/hide"
+> Instances</TD
+></TR
+><TR
+><TD CLASS="body"
+><DIV ID="i:RState" STYLE="display:block;"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+>Eq <A HREF="Biphase.html#t%3ARState"
+>RState</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+>Show <A HREF="Biphase.html#t%3ARState"
+>RState</A
+></TD
+></TR
+></TABLE
+></DIV
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A NAME="t:Rx"
+><A NAME="t%3ARx"
+></A
+></A
+><B
+>Rx</B
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="section4"
+>Constructors</TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="5" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:Rx"
+><A NAME="v%3ARx"
+></A
+></A
+><B
+>Rx</B
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="body" COLSPAN="2"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v:rstate"
+><A NAME="v%3Arstate"
+></A
+></A
+><B
+>rstate</B
+> :: <A HREF="Biphase.html#t%3ARState"
+>RState</A
+></TD
+><TD CLASS="rdoc"
+>Rx's state.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:rsignal"
+><A NAME="v%3Arsignal"
+></A
+></A
+><B
+>rsignal</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Current datum being received.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:rbit"
+><A NAME="v%3Arbit"
+></A
+></A
+><B
+>rbit</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Decoded bit.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:rclk"
+><A NAME="v%3Arclk"
+></A
+></A
+><B
+>rclk</B
+> :: <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+><TD CLASS="rdoc"
+>Rx's timeout.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v:synch"
+><A NAME="v%3Asynch"
+></A
+></A
+><B
+>synch</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Rx just transitioned from 
+ RcvSecond to RcvFirst 
+ (capturing a bit).
+</TD
+></TR
+></TABLE
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="section4"
+><IMG SRC="minus.gif" CLASS="coll" ONCLICK="toggle(this,'i:Rx')" ALT="show/hide"
+> Instances</TD
+></TR
+><TR
+><TD CLASS="body"
+><DIV ID="i:Rx" STYLE="display:block;"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+>Eq <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+>Show <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+></TABLE
+></DIV
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:randomRng"
+><A NAME="v%3ArandomRng"
+></A
+></A
+><B
+>randomRng</B
+> :: (<A HREF="Biphase.html#t%3ATime"
+>Time</A
+>, <A HREF="Biphase.html#t%3ATime"
+>Time</A
+>) -&gt; IO <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:initTx"
+><A NAME="v%3AinitTx"
+></A
+></A
+><B
+>initTx</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:initRclock"
+><A NAME="v%3AinitRclock"
+></A
+></A
+><B
+>initRclock</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:initRx"
+><A NAME="v%3AinitRx"
+></A
+></A
+><B
+>initRx</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:tenv"
+><A NAME="v%3Atenv"
+></A
+></A
+><B
+>tenv</B
+> :: <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:tenc"
+><A NAME="v%3Atenc"
+></A
+></A
+><B
+>tenc</B
+> :: <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>The transmitter's encoder.  Protocol-specific.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:tclock"
+><A NAME="v%3Atclock"
+></A
+></A
+><B
+>tclock</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:txUpdate"
+><A NAME="v%3AtxUpdate"
+></A
+></A
+><B
+>txUpdate</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:rclock"
+><A NAME="v%3Arclock"
+></A
+></A
+><B
+>rclock</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ATime"
+>Time</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Correct update of rclk---helper
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:stable"
+><A NAME="v%3Astable"
+></A
+></A
+><B
+>stable</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:rdec"
+><A NAME="v%3Ardec"
+></A
+></A
+><B
+>rdec</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>The receiver's decoder.  Protocol-specific.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:rxUpdate"
+><A NAME="v%3ArxUpdate"
+></A
+></A
+><B
+>rxUpdate</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+> -&gt; IO <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:transition"
+><A NAME="v%3Atransition"
+></A
+></A
+><B
+>transition</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Full state transition.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:putLnState"
+><A NAME="v%3AputLnState"
+></A
+></A
+><B
+>putLnState</B
+> :: Integer -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO ()</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:stopState"
+><A NAME="v%3AstopState"
+></A
+></A
+><B
+>stopState</B
+> :: <A HREF="Biphase.html#t%3ARx"
+>Rx</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Defines a <A HREF="good.html"
+>good</A
+> stop state: tx has sent the 2nd 
+ signal bit and rx has sampled it.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:execToStopState"
+><A NAME="v%3AexecToStopState"
+></A
+></A
+><B
+>execToStopState</B
+> :: Bool -&gt; <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Integer -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:exec"
+><A NAME="v%3Aexec"
+></A
+></A
+><B
+>exec</B
+> :: Bool -&gt; <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Integer -&gt; (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>) -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Exectuion of the protocol.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:startExec"
+><A NAME="v%3AstartExec"
+></A
+></A
+><B
+>startExec</B
+> :: Bool -&gt; <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; Integer -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Begin a finite trace of length i from the initial 
+ state. Either send one determined signal bit or a 
+ series of nondeterministic signals.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v:initState"
+><A NAME="v%3AinitState"
+></A
+></A
+><B
+>initState</B
+> :: <A HREF="Biphase.html#t%3AParams"
+>Params</A
+> -&gt; IO (<A HREF="Biphase.html#t%3ARx"
+>Rx</A
+>, <A HREF="Biphase.html#t%3ATx"
+>Tx</A
+>)</TD
+></TR
+><TR
+><TD CLASS="doc"
+>The initial state.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="botbar"
+>Produced by <A HREF="http://www.haskell.org/haddock/"
+>Haddock</A
+> version 2.4.2</TD
+></TR
+></TABLE
+></BODY
+></HTML
+>

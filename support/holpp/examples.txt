@@ -1,0 +1,177 @@
+
+-- Not a valid sentence-- True can't be an arg to equals.
+-- foo(bar, bar)(bar) = true; 
+
+
+(true and (not false and (true or false))) and (true and (false and (true or false)))
+;
+
+
+(true and (not false implies (true or false))) or (true implies  (false and (true or false))) ;
+
+P(g) ;
+
+ Pred(g );
+
+ PRED(1);
+
+-- Pred4 (g,a, 4 ); fails
+ --  Foo (g a); fails
+ -- Foo (g, a, ); fails
+
+-- -- f(a) ; fails -- a function is a term, not a sentence!
+
+a = 4 ;
+
+bb = e ;
+
+not P(1);
+
+ forall a. exists b. a=b and (P(g) and true) or false;
+
+
+P(1) and G(2);
+
+
+ forall b,a . true;
+
+not (forall a . true);
+-- not forall a . true; won't parse -- "not" binds tighter than quantifiers
+
+not not not (true or false);
+
+
+((forall d , b,  c .  a = b and (exists b ,f. P(b, c, g) or f(g)=b)) or not not (forall e. exists b. a=b and (P(g)(f,g(a, foo(bar, bar, bar), a))  and (not (not true  )))) or false);
+
+not true;
+
+true or (not (P() and Q())  or false);
+
+true or (P() and Q()  or false);
+
+true or (not not Z() or (not not (forall x. P(x)) and Q()  or false));
+true or (Z() or ((forall x. P(x)) and Q()  or false));
+
+true or (Z() or ((forall x. P(x) and Q(x)) and Q()  or false));
+
+true or (Z() or ((forall x. x = z) and Q()  or false));
+
+true or (Z() or ((P(x)) and Q()  or false));
+
+true or ((forall a. true) or (not not P() and Q()  or false));
+
+not not (P(1) and G(2));
+
+
+not not (forall a,b. not not not (forall c. not true));
+
+
+not (true and (Pred(foobarfoobarfoobarfoobar, bar, zoo) and   false));
+
+Foo(g(f(foobarfoobarfoo, a, b,c)), 4 );
+
+P(asdflkasjdflkjsdf, asdlfkjasdf);
+
+
+true or P(f(g(3,4)),e(2,f(g(asdflksadfajsdfasdlfk,y(asldkfjasldkfjsasdfadasf,asdlfkjasdlfkjdfdf,
+ u(askdfjhasldkfjhasdkjfh)))),t(3,f)));
+
+forall x. forall y. exists x. exists y. true;
+
+f(1, f(1,2,3,4,5,6,7,8,9), 3) = g(asdlkfjas, 4);
+
+f(1, 2, f(1,2,3,4,5,6,7,8,9)) = 2;
+
+true or f(asdflkasjdflkjsdf, asdlfkjasdf) = g(asdlkfjas, 4);
+
+231234 = gdd(asdsdfsdlkfjas, 4);
+
+sdfsdg(1) = fdkfj(123, dfdff(1,2,3,4,5,6,7,8,9), 3) ;
+
+sdfsdg(1,2) = fdkfj(123, dfdff(1,2,3,4,5,6,7,8,9), 3) ;
+
+sdfsdg() = fdkfj(123, dfdff(1,2,3,4,5,6,7,8,9), 3) ;
+
+true or 231234 = gdd(asdsdfsdlkfjas, 4);
+
+true or f(f(2,3)) = gdd(asdsdfsdlkfjas, 4);
+
+sdfsdg(g(f(2,3))) = fdkfj(123, dfdff(1,2,3,4,5,6,7,8,9), 3) ;
+
+
+sdfsdg(f(2,3)) = fdkfj(123, dfdff(1,2,3,4,5,6,7,8,9), 3) ;
+
+
+forall x. 
+        P(f)(g)(h);
+
+Q(f(g(3 )), efgasdfasdaa , 12345612345 ) or Foo(i(h(g(f(foobarfoobarfoo, a, b,c)))), 4 );
+
+not (forall x. exists y.   true);
+
+Foo(f(foobarfoobarfoo, a, b,c), 4 );
+
+true or Foo(f(foobarfoobarfoo, a, b,c), 4 );
+
+forall x. forall x, y, y.   Ppppp( bar, foo(bar))(foo, bar);
+forall x. forall x, y, y. exists z.   Ppppp( bar, foo(bar))(foo, bar);
+
+not (forall x. exists y.   Pppp( bar, foo(bar,foo()(bar(bar,baradflkjsdflkj))))(foo, bar)());
+
+forall x. exists y.   P( bar, foo(bar)(foo(twerkljweklrjwe,aslkdjfldkjfd,bar())))(foo, bar);
+
+forall x.   Pppp( bar, foo(bar)()(foo,bar))(foo, bar);
+
+  foo( bar, bar)( bar) = 4;
+
+P(a)(b);
+
+Pasdfasdxb(a)(b);
+
+P(asdf, asdfasdfasdfs, c)(b);
+
+Foo(foobarfoobarfoo, a, b,c);
+
+f(g(f(2,3)(123456789, 1)(4,5,6)(7,8)))(1) = functName(123, anotherfunctName(1,2,3,4,5,6,7,8,9), foo(h()(1,2,f(1,2))(3)),987654, bar()(1)) ;
+
+f(g(f(2,3))(4,5,6)(7,8)) = f(g(f(2,3))(4,5,6)(7,8));
+
+f(g(f(2,3)(4,5))(4,5,6)(7,8)) = 3;
+
+feeee(geeeeeee(fee(2,gg(1)(2))(4,5))(4,5,6)(7,8))(3,4) = 3;
+
+Feeee(geeeeee(fee(2,gg(1)(2))(4,5))(4,5,6)(7,8))(3,4);
+
+Feeee(3, geeee(2222, 1, fee(2,gg(1)(2))(4,5))(4,5,6)(7,8))(3,4);
+
+Feeee(geeee(2222, 1, fee(2,gg(1)(2))(4,5))(4,5,6)(7,8))(3,4);
+
+true and feeee(geeeeee(fee(2,gg(1)(2))(4,5))(4,5,6)(7,8))(3,4) = 3;
+
+P(2, f(a)(b), 3, f(a)(b));
+
+if (true and false) then (true and false) else (true and false);
+
+if true then false else true;
+
+if (if true then false else true) then (if true then false else true) else (if true then false else true);
+
+true and (if P() then (F()) else false);
+
+let a = true in false;
+let a = true in P();
+
+let a = true, b = false in false; 
+
+
+-- bad numbering: don't number let defs; also bad indentation
+let a = if true then false else P(), b = P() in true and false;
+
+let bbb = forall c. P(), d = true and false, cc = forall c. P(), aaa = if true then false else P() in true and false;
+
+
+let a = if P(a) then f() = g(a) else P(b), b = forall a. Q(a) in R(a, b);
+
+not not not (not not (not not true and not not (false or true) and (true or not false)));
+
+not ((true and false) and  false);

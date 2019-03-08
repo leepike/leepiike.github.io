@@ -1,0 +1,96 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Real-Time System Verification by k-Induction</title>
+</head>
+<body>
+<h1 style="text-align: center;">Real-Time System Verification by 
+<i>k</i>-Induction<br></h1>
+<hr style="width: 100%; height: 2px;">
+<ul>
+  <li>ABSTRACT:<br>
+    <br>We report the first formal verification of a reintegration 
+protocol for a safety-critical, fault-tolerant, real-time distributed 
+embedded system. A reintegration protocol increases system survivability 
+by allowing a node that has suffered a fault to regain state consistent 
+with the operational nodes. The protocol is verified in the Symbolic 
+Analysis Laboratory (SAL), where bounded model checking and decision 
+procedures are used to verify infinite-state systems by 
+<i>k</i>-induction. The protocol and its environment are modeled as synchronizing timeout 
+automata. Because <i>k</i>-induction is exponential with respect to 
+<i>k</i>, we optimize the formal model to reduce the size of <i>k</i>. Also, the 
+reintegrator's event-triggered behavior is conservatively modeled as 
+time-triggered behavior to further reduce the size of <i>k</i> and to make 
+it invariant to the number of nodes modeled. A corollary is that a clique 
+property is satisfied. 
+  </li>
+</ul>
+<ul>
+  <li>BIBTEX:<br>
+    <pre>@TechReport{pike:kind,
+  author =       {Lee Pike},
+  title =        {Real-Time System Verification by $k$-Induction},
+  institution =  {NASA Langley Research Center},
+  year =         {2005},
+  number =       {TM-2005-213751},
+  month =        {May},
+  note =         {Available at \url{http://www.cs.indiana.edu/~lepike/pub_pages/reint.html}}}</pre>
+  </li>
+</ul>
+<ul>
+  <li>PAPER DOWNLOAD: <a href="../pubs/k_ind.pdf">pdf</a>&nbsp; 
+</li>
+</ul>
+<ul>
+  <li>SLIDES DOWNLOAD: <a href="../talks/reint_present.pdf">pdf</a></li>
+</ul>
+<ul>
+  <li>SAL FILES DOWNLOAD:
+  <ul> 
+    <li><a href="../support/reint.sal">reintegration</a> (<a 
+href="../support/prf.sh">reintegration proof script</a>)</li>
+    <li><a href="../support/sta_tgc.sal">STA model 
+of the Train-Gate-Controller</a> </li>
+    <li><a href="../support/sta_tgc_clockless.sal">clockless STA model of 
+the Train-Gate-Controller</a> </li>
+</li>
+  </ul>
+</ul>
+<ul>
+ <li>ERRATA: Page 29: In the <em>Architectures Verified</em> paragraph,"Byzantine fault" 
+should 
+read "value fault". </li>
+</ul>
+<ul>
+<li>NOTES:
+
+<ul>
+<li>A revised and shortened version of this paper is available <a 
+href="./emsoft.html">here</a>.</li>
+<li>The SMT verification conditions from this work are some of the <a 
+href="http://www.smt-lib.org/">SMT-LIB</a> 
+quantifier-free linear real-arithmetic <a 
+href="http://goedel.cs.uiowa.edu/smtlib/benchmarks/QF_LRA/spider_benchmarks/">benchmarks</a>.
+</ul>
+</li>
+</ul>
+
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

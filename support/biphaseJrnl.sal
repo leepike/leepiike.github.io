@@ -1,0 +1,321 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown |@| cs.indiana.edu>         %%
+%% Lee Pike, Galois Connections, Inc. <leepike |@| galois.com>              %%
+%%                                                                          %%
+%% SAL 3.0 <http://fm.csl.sri.com/>                                         %%
+%%                                                                          %%
+%% Fully parameterized specification and refinement of the Biphase          %%
+%% Mark Protocol.                                                           %%
+%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/bmp-jrnl.html    %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+biphaseJrnl: CONTEXT =
+
+BEGIN
+
+TIME : TYPE = REAL;
+
+TPERIOD      :     { x : REAL | 0 < x };
+TSETTLE      :     { x : REAL | 0 <= x AND x < TPERIOD };
+TSTABLE      :     TIME = TPERIOD - TSETTLE;
+
+RSCANMIN :  { x : TIME | 0 < x }; 
+RSCANMAX :  { x : TIME | RSCANMIN <= x AND x < TSTABLE};
+RSAMPMIN :  { x : TIME | TPERIOD + TSETTLE < x };
+RSAMPMAX :  { x : TIME | RSAMPMIN <= x AND x + TSETTLE + RSCANMAX <  2*TPERIOD};
+
+STATE : TYPE = [0..1];
+
+REG : TYPE = ARRAY [0..7] OF BOOLEAN;
+
+time(t1 : TIME, t2: TIME): TIME = 
+  IF t1 <= t2 THEN t1 ELSE t2 ENDIF;
+
+%---------------------------------------
+%  
+% Infinite-State Components
+%
+%---------------------------------------
+
+tclock_rt : MODULE =
+  BEGIN
+     INPUT  rclk   : TIME
+     OUTPUT tclk   : TIME
+  INITIALIZATION
+     tclk  IN {x : TIME | 0 <= x AND x <= TPERIOD};
+  TRANSITION
+         [
+            tclk = time(rclk, tclk) -->
+                   tclk' = tclk + TPERIOD;
+         ]
+   END;
+
+tenv : MODULE = 
+   BEGIN
+     INPUT   tready : BOOLEAN
+     OUTPUT  tbit   : BOOLEAN
+     INITIALIZATION
+             tbit = TRUE;
+     TRANSITION
+     [
+         tready --> tbit' IN {TRUE, FALSE};
+     []  ELSE   --> 
+     ]
+   END;
+
+tenc_bmp : MODULE = 
+   BEGIN
+     OUTPUT tdata       : BOOLEAN
+     OUTPUT tstate      : STATE
+     OUTPUT tready      : BOOLEAN
+     INPUT  tbit        : BOOLEAN
+     INITIALIZATION
+       tstate = 0;
+       tdata  = TRUE;
+     DEFINITION
+       tready = (tstate = 0);
+     TRANSITION
+     [
+        tstate = 0 --> 
+                     tdata' = NOT tdata;
+                     tstate' = 1;
+     [] tstate = 1 --> 
+                     tdata' = tdata XOR tbit;
+                     tstate' = 0;
+     ]
+END;
+
+tx_bmp_rt : MODULE = tclock_rt || tenc_bmp || tenv;
+
+timeout (min : TIME, max : TIME) : [TIME -> BOOLEAN]  = 
+                { x : TIME | min <= x AND x <=  max};
+
+
+rclock_bmp_rt : MODULE  =
+       BEGIN
+        INPUT  tclk     : TIME
+        INPUT  rstate   : STATE
+        OUTPUT rclk     : TIME
+       INITIALIZATION
+           rclk IN { x : TIME | 0 <= x AND x < RSCANMAX };   
+       TRANSITION
+       [
+        rclk = time(rclk, tclk) --> 
+                   rclk' IN IF (rstate' = 0) THEN
+                      timeout(rclk + RSCANMIN, rclk + RSCANMAX)  
+                    ELSE
+                       timeout(rclk + RSAMPMIN, rclk + RSAMPMAX)
+                    ENDIF;
+       ]
+       END;
+
+rdec_bmp  : MODULE = 
+       BEGIN
+         INPUT  tdata     : BOOLEAN
+         OUTPUT rdata     : BOOLEAN
+         OUTPUT rstate    : STATE
+         OUTPUT rbit      : BOOLEAN
+     INITIALIZATION
+       rstate  = 0;
+       rdata = TRUE;
+       rbit  = TRUE;
+     TRANSITION
+        [
+           rstate = 0  -->
+                 rdata' IN {FALSE, TRUE};
+                 rstate' = IF (rdata = rdata') THEN 0 ELSE 1 ENDIF;
+
+        [] rstate = 1  -->  
+                  rdata' IN {FALSE, TRUE};
+                  rbit' = rdata /= rdata';
+                  rstate' = 0;
+        ]
+     END;
+
+constraint : MODULE =
+       BEGIN
+          INPUT  tclk     : TIME
+          INPUT  rclk     : TIME
+          INPUT  rdata    : BOOLEAN
+          INPUT  tdata    : BOOLEAN
+          LOCAL  stable   : BOOLEAN
+          LOCAL  changing : BOOLEAN
+       DEFINITION
+           stable = NOT changing OR (tclk - rclk < TSTABLE);
+     INITIALIZATION
+           changing = FALSE	  
+       TRANSITION
+       [
+          rclk' /= rclk AND (stable => rdata' = tdata) -->
+       [] tclk' /= tclk --> changing' = (tdata' /= tdata)
+       ]
+      END;
+
+rx_bmp_rt : MODULE = rclock_bmp_rt || rdec_bmp;
+
+system_bmp : MODULE = (tx_bmp_rt [] rx_bmp_rt) || constraint;
+
+%---------------------------------------
+%  
+% Finite-State Components
+%
+%---------------------------------------
+
+tclock_fs : MODULE =
+  BEGIN
+     INPUT  rstate   : STATE
+     INPUT tstate   : STATE
+  TRANSITION
+         [
+          tstate = rstate  --> 
+         ]
+   END;
+
+rclock_bmp_fs : MODULE  =
+       BEGIN
+        INPUT  tstate     : STATE
+        INPUT rstate     : STATE
+
+       TRANSITION
+       [
+          rstate /= tstate OR tstate = 0 --> 
+       ]
+       END;
+
+rdec_bmp_fs  : MODULE = 
+       BEGIN
+         INPUT  tdata     : BOOLEAN
+         OUTPUT rdata     : BOOLEAN
+         OUTPUT rstate    : STATE
+         OUTPUT rbit      : BOOLEAN
+     INITIALIZATION
+       rstate  = 0;
+       rdata = TRUE;
+       rbit  = TRUE;
+     TRANSITION
+        [
+           rstate = 0 --> 
+        [] rstate = 0 AND tdata /= rdata --> 
+                 rdata' = tdata;
+                 rstate' = 1;
+        [] rstate = 1  -->  
+                  rdata' = tdata;
+                  rbit' = rdata /= rdata';
+                  rstate' = 0;
+
+        ]
+     END;
+
+tx_bmp_fs : MODULE = tclock_fs || tenc_bmp || tenv;
+rx_bmp_fs : MODULE = rclock_bmp_fs || rdec_bmp_fs;
+
+system_bmp_fs : MODULE = tx_bmp_fs [] rx_bmp_fs;
+
+
+%---------------------------------------
+%  
+% Theorems (proof commands commented)
+%
+%---------------------------------------
+
+% sal-inf-bmc -d 1 -i biphaseJrnl.sal l1
+   l1 : LEMMA system_bmp |- G(tclk <= (rclk + TPERIOD) AND
+                          rclk <= tclk + RSAMPMAX);
+
+% sal-inf-bmc -d 4 -i -l l1   biphaseJrnl.sal t0
+  t0:  THEOREM system_bmp |- G(
+         ((rstate=0 AND tstate=0) AND
+          (rclk <= tclk + RSCANMAX) AND
+          (rdata = tdata) AND
+          stable)
+         OR
+         ((rstate=0 AND tstate=1) AND
+          (rclk < tclk) AND
+          (rdata /= tdata))
+         OR
+         ((rstate=1 AND tstate=1) AND
+          (tclk < rclk) AND
+          (rdata = tdata))
+         OR
+         ((rstate=1 AND tstate=0) AND
+          (rclk < tclk)));
+
+% sal-inf-bmc -d 2 -i -l t0 biphaseJrnl.sal BMP_Thm
+ BMP_Thm:  THEOREM system_bmp |- G(rstate = 0 AND tstate = 0 => (rbit = tbit));
+
+                                 
+%---------------------------------------
+%  
+% Refinement Theorems 
+% (proof commands commented)
+%
+%---------------------------------------
+
+% sal-inf-bmc -d 1 -i biphaseJrnl.sal l2
+   l2 : LEMMA system_bmp |- G(rclk <= tclk + RSAMPMAX OR 
+                          rclk <= tclk + RSCANMAX);
+
+% sal-inf-bmc -d 2 -i -l l1 -l l2 -l t0 biphaseJrnl.sal const_thm
+const_thm : THEOREM system_bmp |- G((tstate /= 1) => stable);
+
+% FALSE
+% sal-inf-bmc -d 2 -i -l t0 -l const_thm biphaseJrnl.sal rdec_thm1
+% sal-inf-bmc -d 2 -i -l t0 -l const_thm biphaseJrnl.sal rdec_thm2
+
+  rdec_thm1 : THEOREM system_bmp |- G(
+    (rstate = 0 AND (X(rdata) = rdata => X(rstate = 0)) AND (X(rdata) /= rdata => X(rstate = 1))) 
+   => ((X(rdata) = rdata AND X(rbit) = rbit AND X(rstate = 0)) OR (tdata /= rdata AND X(rdata) = tdata AND X(rstate = 1)) ));
+
+  rdec_thm2 : THEOREM system_bmp |- G(
+    (rstate = 1 AND X(rbit) = (rdata /= X(rdata)) AND X(rstate = 0)) =>
+       (X(rdata) = tdata));
+
+% sal-inf-bmc -d 3 -i -l t0 biphaseJrnl.sal Clock_Thm1
+% sal-inf-bmc -d 1 -i -l t0 -l l1 biphaseJrnl.sal Clock_Thm2
+
+% tclock refinement theorem.
+  Clock_Thm1 : THEOREM system_bmp |- G(tclk = time(tclk,rclk) => rstate = tstate);
+
+% rclock refinement theorem.
+  Clock_Thm2 : THEOREM system_bmp |- G(rclk = time(rclk,tclk) =>
+                                   (rstate /= tstate OR tstate = 0));
+
+%---------------------------------------
+%  
+% Theorems of the finite-state model
+% (proof commands commented)
+%
+%---------------------------------------
+
+% Run the following to ensure the finite-state model is not deadlocked.
+% sal-deadlock-checker biphaseJrnl.sal system_bmp_fs
+
+% Possible runs are (tstate,rstate) = (0,0) ... (1,0) ... (1,1) (0,1) (0,0) etc.
+% where ... is stuttering.
+
+% The following theorems prove only these runs are possible:
+
+% sal-smc biphaseJrnl.sal StateThm1
+% sal-smc biphaseJrnl.sal StateThm2
+% sal-smc biphaseJrnl.sal StateThm3
+% sal-smc biphaseJrnl.sal StateThm4
+
+StateThm1 :  THEOREM system_bmp_fs |- G((tstate=0 AND rstate=0) 
+                 => X((tstate=0 AND rstate=0) OR (tstate=1 AND rstate=0)));
+
+StateThm2 :  THEOREM system_bmp_fs |- G((tstate=1 AND rstate=0) 
+                 => X((tstate=1 AND rstate=0) OR (tstate=1 AND rstate=1)));
+
+StateThm3 :  THEOREM system_bmp_fs |- G((tstate=1 AND rstate=1) 
+                 => X((tstate=0 AND rstate=1)));
+
+StateThm4 :  THEOREM system_bmp_fs |- G((tstate=0 AND rstate=1) 
+                 => X((tstate=0 AND rstate=0)));
+
+% sal-smc biphaseJrnl.sal Untimed_BMP_Thm
+Untimed_BMP_Thm: THEOREM system_bmp_fs |- G((tstate = 0 AND rstate = 0) => rbit = tbit);
+
+% sal-smc biphaseJrnl.sal Liveness
+Liveness: THEOREM system_bmp_fs |- G(F(rstate /= 0) => F(tstate = 0 AND rstate = 0));
+
+END

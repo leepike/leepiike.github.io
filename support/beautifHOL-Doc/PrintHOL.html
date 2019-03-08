@@ -1,0 +1,2521 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--Rendered using the Haskell Html Library v0.2-->
+<HTML
+><HEAD
+><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"
+><TITLE
+>PrintHOL</TITLE
+><LINK HREF="haddock.css" REL="stylesheet" TYPE="text/css"
+><SCRIPT SRC="haddock-util.js" TYPE="text/javascript"
+></SCRIPT
+><SCRIPT TYPE="text/javascript"
+>window.onload = function () {setSynopsis("mini_PrintHOL.html")};</SCRIPT
+></HEAD
+><BODY
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="topbar"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD
+><IMG SRC="haskell_icon.gif" WIDTH="16" HEIGHT="16" ALT=" "
+></TD
+><TD CLASS="title"
+>beautifHOL</TD
+><TD CLASS="topbut"
+><A HREF="index.html"
+>Contents</A
+></TD
+><TD CLASS="topbut"
+><A HREF="doc-index.html"
+>Index</A
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="modulebar"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD
+><FONT SIZE="6"
+>PrintHOL</FONT
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="section1"
+>Description</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Module handles the actual pretty-printing.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="section1"
+>Synopsis</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A HREF="#t%3AFlags"
+>Flags</A
+> = [String]</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Aarglst"
+>arglst</A
+> :: <A HREF="PrintHOL.html#t%3AFlags"
+>Flags</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AnotreeArg"
+>notreeArg</A
+> :: String</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A HREF="#t%3AEnv"
+>Env</A
+>  = <A HREF="#v%3AEnvDT"
+>EnvDT</A
+> {<TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3Alabel"
+>label</A
+> :: Int</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AnewLn"
+>newLn</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AunOp"
+>unOp</A
+> :: Int</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AabsInd"
+>absInd</A
+> :: Int</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3ArelInd"
+>relInd</A
+> :: Int</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AdefaultInd"
+>defaultInd</A
+> :: Int</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AprevSameBinOp"
+>prevSameBinOp</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AsplitArgs"
+>splitArgs</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AinnerTerm"
+>innerTerm</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AshowLabels"
+>showLabels</A
+> :: Bool</TD
+></TR
+><TR
+><TD CLASS="recfield"
+><A HREF="#v%3AnoLabels"
+>noLabels</A
+> :: Bool</TD
+></TR
+></TABLE
+>}</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AmkinitEnv"
+>mkinitEnv</A
+> :: <A HREF="PrintHOL.html#t%3AFlags"
+>Flags</A
+> -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AresetEnv"
+>resetEnv</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AprintTree"
+>printTree</A
+> :: <A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> a =&gt; a -&gt; <A HREF="PrintHOL.html#t%3AFlags"
+>Flags</A
+> -&gt; String</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A HREF="#t%3ADoc"
+>Doc</A
+> = [ShowS] -&gt; [ShowS]</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Adoc"
+>doc</A
+> :: ShowS -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Arender"
+>render</A
+> :: <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+> -&gt; String</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AconcatS"
+>concatS</A
+> :: [ShowS] -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AconcatD"
+>concatD</A
+> :: [<A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+>] -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AreplicateS"
+>replicateS</A
+> :: Int -&gt; ShowS -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Aspaces"
+>spaces</A
+> :: Int -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A HREF="#t%3AEnvT"
+>EnvT</A
+> = Reader <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AprtList"
+>prtList</A
+> :: <A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> a =&gt; [a] -&gt; [<A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+>] -&gt; [<A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+>]</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>class</SPAN
+>  <A HREF="#t%3APrint"
+>Print</A
+> a  <SPAN CLASS="keyword"
+>where</SPAN
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3Aprt"
+>prt</A
+> :: a -&gt; <A HREF="PrintHOL.html#t%3AEnvT"
+>EnvT</A
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AmkEsc"
+>mkEsc</A
+> :: Char -&gt; Char -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AmaxLabels"
+>maxLabels</A
+> :: [<A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+>] -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+>]</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AintersperseTerms"
+>intersperseTerms</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; [<A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+>]</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AbinOpDoc"
+>binOpDoc</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; String -&gt; Int -&gt; (<A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool) -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AquantDoc"
+>quantDoc</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; String -&gt; Int -&gt; (<A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool) -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AifDoc"
+>ifDoc</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AifEnv"
+>ifEnv</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Int -&gt; Int -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AletDoc"
+>letDoc</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="AbsHOL.html#t%3ADEF"
+>DEF</A
+>] -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AletEnv"
+>letEnv</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Int -&gt; Bool -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AnotEnv"
+>notEnv</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Bool -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AargSeparators"
+>argSeparators</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AnextLnArgs"
+>nextLnArgs</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AnewSplit"
+>newSplit</A
+> :: [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AcurriedTerm"
+>curriedTerm</A
+> :: [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AmaxArg"
+>maxArg</A
+> :: [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AtermStrLens"
+>termStrLens</A
+> :: <A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+> -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AnumApp"
+>numApp</A
+> :: Bool -&gt; Int -&gt; Int -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AshowLabel"
+>showLabel</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3ApredIdLen"
+>predIdLen</A
+> :: <A HREF="AbsHOL.html#t%3APredId"
+>PredId</A
+> -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AfunctIdLen"
+>functIdLen</A
+> :: <A HREF="AbsHOL.html#t%3AFunctId"
+>FunctId</A
+> -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AabsIndUp"
+>absIndUp</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AandSent"
+>andSent</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AorSent"
+>orSent</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AimpSent"
+>impSent</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AforallSent"
+>forallSent</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AexistsSent"
+>existsSent</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AbinEnv1"
+>binEnv1</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Bool -&gt; Int -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AbinEnv2"
+>binEnv2</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Bool -&gt; Int -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AcheckUnOpArg"
+>checkUnOpArg</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; String -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AcheckQuant"
+>checkQuant</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AcheckBinOp"
+>checkBinOp</A
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AnegInd"
+>negInd</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AquantEnv1"
+>quantEnv1</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Bool -&gt; Int -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3ArelUpdate"
+>relUpdate</A
+> :: Int -&gt; Int -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AsimpInd"
+>simpInd</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AupIndUnOp"
+>upIndUnOp</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AquantOpInd"
+>quantOpInd</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; String -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AbinaryOpInd"
+>binaryOpInd</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; String -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AcomputeSpcs"
+>computeSpcs</A
+> :: Bool -&gt; Int -&gt; Int -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="#v%3AlabelInd"
+>labelInd</A
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; ShowS</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="section1"
+>Documentation</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A NAME="t%3AFlags"
+></A
+><B
+>Flags</B
+> = [String]</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Possible flags to the program.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3Aarglst"
+></A
+><B
+>arglst</B
+> :: <A HREF="PrintHOL.html#t%3AFlags"
+>Flags</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>List of possible arguments.  Do not modify the ordering of this list (add new
+ flags to the end).
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AnotreeArg"
+></A
+><B
+>notreeArg</B
+> :: String</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Defne flags here so they can be easily renamed.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>data</SPAN
+>  <A NAME="t%3AEnv"
+></A
+><B
+>Env</B
+>  </TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="ndoc"
+>The major datatype passed around holding the pretty-printing state.
+</TD
+></TR
+><TR
+><TD CLASS="section4"
+>Constructors</TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="5" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AEnvDT"
+></A
+><B
+>EnvDT</B
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="body" COLSPAN="2"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+><A NAME="v%3Alabel"
+></A
+><B
+>label</B
+> :: Int</TD
+><TD CLASS="rdoc"
+>Line label
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AnewLn"
+></A
+><B
+>newLn</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>If true, then we're on a new line.  Note: binary
+   operators are always on a new line; this tells us
+   whether some other sentence or term is on its own
+   line.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AunOp"
+></A
+><B
+>unOp</B
+> :: Int</TD
+><TD CLASS="rdoc"
+>How many negations we've seen
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AabsInd"
+></A
+><B
+>absInd</B
+> :: Int</TD
+><TD CLASS="rdoc"
+>Indentation after label stuff.  Where the line begins.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3ArelInd"
+></A
+><B
+>relInd</B
+> :: Int</TD
+><TD CLASS="rdoc"
+>Relative indentation (from last operator)
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AdefaultInd"
+></A
+><B
+>defaultInd</B
+> :: Int</TD
+><TD CLASS="rdoc"
+>Default indendtation (up to the longest label of a
+ formula)
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AprevSameBinOp"
+></A
+><B
+>prevSameBinOp</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Was this binary operator the argument to the
+ same binary operator?  (If so, we don't indent.)
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AsplitArgs"
+></A
+><B
+>splitArgs</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>True: put args to functions &amp; predicates on their
+ own line.  The number is the length of the
+ identifier, plus other args and identifiers, up to
+ this term.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AinnerTerm"
+></A
+><B
+>innerTerm</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Is this term inside another term?  (The only case
+ in which it is not is if it is an argument to = .)
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AshowLabels"
+></A
+><B
+>showLabels</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Show labels?  This is only for whether labels
+ should currently be suppressed (e.g., in let
+ defs).  For no labels at all, we set a global
+ flag.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+><A NAME="v%3AnoLabels"
+></A
+><B
+>noLabels</B
+> :: Bool</TD
+><TD CLASS="rdoc"
+>Are we showing labels at all (or are they globally suppressed)?
+</TD
+></TR
+></TABLE
+></TD
+></TR
+></TABLE
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AmkinitEnv"
+></A
+><B
+>mkinitEnv</B
+> :: <A HREF="PrintHOL.html#t%3AFlags"
+>Flags</A
+> -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>The initial environment.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AresetEnv"
+></A
+><B
+>resetEnv</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+><A HREF="Resets.html"
+>Resets</A
+> the environment except for the default indentation (from the length of
+ the longest label).
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AprintTree"
+></A
+><B
+>printTree</B
+> :: <A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> a =&gt; a -&gt; <A HREF="PrintHOL.html#t%3AFlags"
+>Flags</A
+> -&gt; String</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A NAME="t%3ADoc"
+></A
+><B
+>Doc</B
+> = [ShowS] -&gt; [ShowS]</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3Adoc"
+></A
+><B
+>doc</B
+> :: ShowS -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3Arender"
+></A
+><B
+>render</B
+> :: <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+> -&gt; String</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Takes the final Doc and returns the output.  Ideally, the Doc should be considered
+ the logical structure of the pretty-printed formula and the render assigns
+ concrete syntax.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AconcatS"
+></A
+><B
+>concatS</B
+> :: [ShowS] -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AconcatD"
+></A
+><B
+>concatD</B
+> :: [<A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+>] -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AreplicateS"
+></A
+><B
+>replicateS</B
+> :: Int -&gt; ShowS -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3Aspaces"
+></A
+><B
+>spaces</B
+> :: Int -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>type</SPAN
+> <A NAME="t%3AEnvT"
+></A
+><B
+>EnvT</B
+> = Reader <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AprtList"
+></A
+><B
+>prtList</B
+> :: <A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> a =&gt; [a] -&gt; [<A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+>] -&gt; [<A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+>]</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><SPAN CLASS="keyword"
+>class</SPAN
+>  <A NAME="t%3APrint"
+></A
+><B
+>Print</B
+> a  <SPAN CLASS="keyword"
+>where</SPAN
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="ndoc"
+>The Print class.  Each constructor of the grammar instantiates this.  The prt
+ function tells how to pretty-print each construct.
+</TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="section4"
+>Methods</TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><A NAME="v%3Aprt"
+></A
+><B
+>prt</B
+> :: a -&gt; <A HREF="PrintHOL.html#t%3AEnvT"
+>EnvT</A
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s8"
+></TD
+></TR
+><TR
+><TD CLASS="section4"
+><IMG SRC="minus.gif" CLASS="coll" ONCLICK="toggle(this,'i:Print')" ALT="show/hide"
+> Instances</TD
+></TR
+><TR
+><TD CLASS="body"
+><DIV ID="i:Print" STYLE="display:block;"
+><TABLE CLASS="vanilla" CELLSPACING="1" CELLPADDING="0"
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> Char</TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> Double</TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> Int</TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> Integer</TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3ATERMS"
+>TERMS</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3ADEF"
+>DEF</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3APROGRAM"
+>PROGRAM</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3AFunctId"
+>FunctId</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3APredId"
+>PredId</A
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A HREF="PrintHOL.html#t%3APrint"
+>Print</A
+> <A HREF="AbsHOL.html#t%3AIdents"
+>Idents</A
+></TD
+></TR
+></TABLE
+></DIV
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AmkEsc"
+></A
+><B
+>mkEsc</B
+> :: Char -&gt; Char -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Escape characters for rendering.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AmaxLabels"
+></A
+><B
+>maxLabels</B
+> :: [<A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+>] -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+>]</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AintersperseTerms"
+></A
+><B
+>intersperseTerms</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; [<A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+>]</TD
+></TR
+><TR
+><TD CLASS="doc"
+>For a list of terms, we intersperse the argument separator string.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AbinOpDoc"
+></A
+><B
+>binOpDoc</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; String -&gt; Int -&gt; (<A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool) -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Returns the String to bring for binary operator sentences.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AquantDoc"
+></A
+><B
+>quantDoc</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; String -&gt; Int -&gt; (<A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool) -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Returns the String to print for a forall/exists sentence.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AifDoc"
+></A
+><B
+>ifDoc</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Returns the string to print for if-then-else sentences.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AifEnv"
+></A
+><B
+>ifEnv</B
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+>:: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>length of ifTab 
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>extra space needed because <A HREF="if.html"
+>if</A
+> is shorter than <A HREF="then.html"
+>then</A
+> and <A HREF="else.html"
+>else</A
+>
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>operand label
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="ndoc" COLSPAN="2"
+>New environment for the second argument to a binary operator.
+</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AletDoc"
+></A
+><B
+>letDoc</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; [<A HREF="AbsHOL.html#t%3ADEF"
+>DEF</A
+>] -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Returns the doc for let [defs] in SENT.  [DEF] should be nonempty.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AletEnv"
+></A
+><B
+>letEnv</B
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+>:: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>length of letTab
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>extra space needed because <A HREF="let.html"
+>let</A
+> is longer than <A HREF="in.html"
+>in</A
+>
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Bool</TD
+><TD CLASS="rdoc"
+>whether labels should be shown or suppressed
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AnotEnv"
+></A
+><B
+>notEnv</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Bool -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AargSeparators"
+></A
+><B
+>argSeparators</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Takes an environment and returns separators (default is commas) for between
+ lists of variables, terms, etc. and if necessary, it inserts linebreak
+ commands.  The Doc returned is interspersed into the list of of variables or
+ terms.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AnextLnArgs"
+></A
+><B
+>nextLnArgs</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Puts either args or curried arguments on the next line with the right indenting.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AnewSplit"
+></A
+><B
+>newSplit</B
+> :: [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Are the args long enough that we have to split
+ them, or is there a curried function that is a
+ term?
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AcurriedTerm"
+></A
+><B
+>curriedTerm</B
+> :: [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AmaxArg"
+></A
+><B
+>maxArg</B
+> :: [<A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+>] -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AtermStrLens"
+></A
+><B
+>termStrLens</B
+> :: <A HREF="AbsHOL.html#t%3ATERM"
+>TERM</A
+> -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AnumApp"
+></A
+><B
+>numApp</B
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+>:: Bool</TD
+><TD CLASS="rdoc"
+>are labels currently suppressed (e.g., in let...in statements). 
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>depth
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>which operand
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+></TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AshowLabel"
+></A
+><B
+>showLabel</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3ApredIdLen"
+></A
+><B
+>predIdLen</B
+> :: <A HREF="AbsHOL.html#t%3APredId"
+>PredId</A
+> -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AfunctIdLen"
+></A
+><B
+>functIdLen</B
+> :: <A HREF="AbsHOL.html#t%3AFunctId"
+>FunctId</A
+> -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AabsIndUp"
+></A
+><B
+>absIndUp</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Int</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Absolute indentation (for splitting across lines and not splitting).
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AandSent"
+></A
+><B
+>andSent</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AorSent"
+></A
+><B
+>orSent</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AimpSent"
+></A
+><B
+>impSent</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AforallSent"
+></A
+><B
+>forallSent</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AexistsSent"
+></A
+><B
+>existsSent</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AbinEnv1"
+></A
+><B
+>binEnv1</B
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+>:: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Bool</TD
+><TD CLASS="rdoc"
+>is the same operator as we've just seen, so no indentation
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>label
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="ndoc" COLSPAN="2"
+>Returns the new environment for the first argument to a binary operator.
+</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AbinEnv2"
+></A
+><B
+>binEnv2</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Bool -&gt; Int -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Returns the new environment for second argument to a binary operator (see documentation for binEnv1).
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AcheckUnOpArg"
+></A
+><B
+>checkUnOpArg</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; String -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>If the next sentence to parse is a binary operator sentence, then don't do anything
+ the <A HREF="not.html"
+>not</A
+> will printed with the next sentence.  Otherwise, just do the indenting.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AcheckQuant"
+></A
+><B
+>checkQuant</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="doc"
+>True if there is a sequence of <A HREF="not sentences.html"
+>not sentences</A
+> followed by a quantified
+ sentence.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AcheckBinOp"
+></A
+><B
+>checkBinOp</B
+> :: <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; Bool</TD
+></TR
+><TR
+><TD CLASS="doc"
+>True if there is a sequence of negated sentences followed by a <A HREF="binary operator
+ sentence.html"
+>binary operator
+ sentence</A
+>.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AnegInd"
+></A
+><B
+>negInd</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="AbsHOL.html#t%3ASENT"
+>SENT</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AquantEnv1"
+></A
+><B
+>quantEnv1</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; Int -&gt; Bool -&gt; Int -&gt; <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3ArelUpdate"
+></A
+><B
+>relUpdate</B
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+>:: Int</TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>i==0 menas the environment hasn't been indented yet.
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="ndoc" COLSPAN="2"
+>If the env has not been indented yet (i==0), then just update according to the
+ operator's tab width (j); otherwise add the old relative indent, the new tab, and
+ an extra space between the strings.
+</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AsimpInd"
+></A
+><B
+>simpInd</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>Indentation for binary operator sentences.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AupIndUnOp"
+></A
+><B
+>upIndUnOp</B
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+>:: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+></TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>operator size
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="ndoc" COLSPAN="2"
+>Returns an absolute indentation depending on the operator size and whether
+ there is a preceding unary operator.  Does not indent for operators of the same
+ kind (so there's no precedence to record).
+</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AquantOpInd"
+></A
+><B
+>quantOpInd</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; String -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AbinaryOpInd"
+></A
+><B
+>binaryOpInd</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; String -&gt; <A HREF="PrintHOL.html#t%3ADoc"
+>Doc</A
+></TD
+></TR
+><TR
+><TD CLASS="doc"
+>If we're inside a <A HREF="not.html"
+>not</A
+> sentence, then put this sentence right after the <A HREF="not.html"
+>not</A
+>s.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AcomputeSpcs"
+></A
+><B
+>computeSpcs</B
+></TD
+></TR
+><TR
+><TD CLASS="body"
+><TABLE CLASS="vanilla" CELLSPACING="0" CELLPADDING="0"
+><TR
+><TD CLASS="arg"
+>:: Bool</TD
+><TD CLASS="rdoc"
+>are there labels
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>spaces before separator
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; Int</TD
+><TD CLASS="rdoc"
+>spaces after separator
+</TD
+></TR
+><TR
+><TD CLASS="arg"
+>-&gt; ShowS</TD
+><TD CLASS="rdoc"
+></TD
+></TR
+><TR
+><TD CLASS="ndoc" COLSPAN="2"
+>Compute spaces from beginning of line.  
+</TD
+></TR
+></TABLE
+></TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="decl"
+><A NAME="v%3AlabelInd"
+></A
+><B
+>labelInd</B
+> :: <A HREF="PrintHOL.html#t%3AEnv"
+>Env</A
+> -&gt; ShowS</TD
+></TR
+><TR
+><TD CLASS="doc"
+>Returns the indentation for directly after a label.
+</TD
+></TR
+><TR
+><TD CLASS="s15"
+></TD
+></TR
+><TR
+><TD CLASS="botbar"
+>Produced by <A HREF="http://www.haskell.org/haddock/"
+>Haddock</A
+> version 2.4.1</TD
+></TR
+></TABLE
+></BODY
+></HTML
+>

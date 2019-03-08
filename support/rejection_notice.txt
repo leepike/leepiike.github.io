@@ -1,0 +1,76 @@
+*************
+**
+** The following is a PARODY ONLY of rejection letters to authors...
+** ...Wouldn't it be nice to turn the tables some time and reject a conference?
+**
+** Lee Pike <http://www.cs.indiana.edu/~lepike/>
+**
+*************
+
+Dear Program Committee (PC);
+
+Thank you very much for advertising your call for papers (CFP) for the International
+Conference on _______________, (20__).  We received a record number of CFPs this year
+for which our paper was well-suited.  The conferences were very competitive, and
+unfortunately, we were not able to accept your conference this year for submission.
+We received __ CFPs, and we submitted to one conference, yielding a submission rate of
+__%.
+
+Please consider the comments provided by the authors of our paper on your CFP below.
+We wish you the best with your conference and invite you to advertise again next
+year.
+
+** REVIEWS **  
+
+[The following are sample reviews to be changed for the particular conference being
+rejected.]
+
+-----------------------------------------------------------------------
+Author #1
+
+Score: 
+Confidence: 
+
+Overall, I found the CFP interesting, but slightly off-topic for our paper.  I didn't
+see many of my friends on the program committee, which seemed to reduce the chances
+of acceptance as well as making the social hour much less fun for me.
+
+I am not a member of the PC; I have to question the significance of a conference that
+has not yet invited me to be on the PC.
+
+Also, I don't think I can bear to hear Prof. _______'s yawn-inducing invited talk at
+your conference.  (Again, I question the significance of a conference that has not yet
+invited me to give the keynote speech.)
+
+-----------------------------------------------------------------------------------
+Author #2
+
+Score:
+Confidence:
+
+The conference was located in _____________ during the ___________ season; I'd prefer a
+much warmer/colder/more exotic venue.  
+
+Although the topic of your conference is relevant to our paper, I consider its
+specific topic a solved problem since I wrote my seminal paper, "________________."
+
+Finally, our paper was about 2 pages too long for your page limit, and my coauthors
+and I were too lazy to condense the paper.
+
+-----------------------------------------------------------------------------------
+Author #3
+
+Score:
+Confidence:
+
+Although I thought our chances of acceptance were quite high at your conference, my
+tenure review is coming up, and I need a more competitive conference on my C.V.  
+
+My travel funds have run short, and your conference is too far away, and the conference
+accommodations and registration fees are too expensive.
+
+This conference seems to pander to Europe/North America/Asia/other, and I doubt our
+work will be accepted here.
+
+Finally, this appears to be more of a trade-show than academic conference.  
+

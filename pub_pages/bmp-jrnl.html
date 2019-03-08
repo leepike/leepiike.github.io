@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Automated Verification and Refinement for Physical-Layer Protocols</title>
+</head>
+<body>
+<h1 style="text-align: center;"><br>Automated Verification and Refinement for 
+Physical-Layer Protocols</br></h1>
+<hr style="width: 100%; height: 2px;">
+
+ <ul>
+  <li>ABSTRACT:<br>
+    <br> 
+This paper demonstrates how to use a satisfiability modulo theories (SMT)
+solver together with a bounded model checker to verify properties of real-time
+physical layer protocols.  The method is first used to verify the Biphase Mark
+protocol, a protocol that has been verified numerous times previously, allowing
+for a comparison of results.  The techniques are extended to the 8N1 protocol
+used in universal asynchronous receiver transmitters (UARTs).  We then
+demonstrate the use of temporal refinement to link a finite state specification
+of 8N1 with its real-time implementation.  This refinement relationship relieves
+a significant disadvantage of SMT approaches---their inability to scale to large
+problems.
+
+  </li>
+</ul>
+<ul>
+  <li>BIBTEX:<br> 
+
+<pre>
+@article{BrownPikeFac,
+  author    = {Geoffrey M. Brown and Lee Pike},
+  title     = {Automated verification and refinement for physical-layer protocols},
+  journal   = {Formal Aspects of Computing},
+  volume    = {23},
+  number    = {3},
+  year      = {2011},
+  pages     = {243-266},
+  note = {Available at \url{http://www.cs.indiana.edu/~lepike/pub_pages/bmp-jrnl.html}}
+}
+</pre>
+
+</li></ul>
+
+<ul>
+  <li> PAPER DOWNLOAD: <a href="../pubs/saljrnl.pdf">saljrnl.pdf</a>
+</li>
+</ul>
+
+
+<ul>
+  <li>SAL FILES DOWNLOAD:<br><br>
+  <ul> 
+<li> 8N1 protocol SAL model and verification: <a 
+href="../support/uartJrnl.sal">uartJrnl.sal</a></li>
+<li> Biphase Mark protocol SAL model and verification: <a 
+href="../support/biphaseJrnl.sal">biphaseJrnl.sal</a></li>
+<li><a href="../support/refinement/runproof">runproof</a> (proof script)</li>
+ </ul>
+ 
+
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

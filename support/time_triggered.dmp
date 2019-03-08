@@ -1,0 +1,2479 @@
+
+%% PVS Version 3.2
+%% 6.2 [Linux (x86)] (Nov 3, 2004 23:30)
+$$$PVSHOME/.pvs.lisp
+;; COPY THIS FILE TO ~user/.pvs.lisp
+
+(pvs-message "Loading patches PVS3.2")
+
+(defmethod copy-untyped* ((ex fieldappl))
+  (with-slots (id actuals argument) ex
+    (copy ex
+      'id id
+      'type nil
+      'actuals (copy-untyped* actuals)
+      'argument (copy-untyped* argument))))
+
+
+(defun exportable? (decl theory)
+  (assert *current-context*)
+  (or (eq (module decl) (current-theory))
+      (from-prelude? decl)
+      (from-prelude-library? decl)
+      (unless (or (from-prelude? theory)
+		  (from-prelude-library? theory))
+	(let ((exp (exporting theory)))
+	  (if (eq (module decl) theory)
+	      (or (eq (kind exp) 'default)
+		  (if (eq (names exp) 'all)
+		      (not (member decl (but-names exp) :test #'expname-test))
+		      (member decl (names exp) :test #'expname-test)))
+	      (or ;;(eq (kind exp) 'default)
+	       (and (rassoc (module decl) (closure exp) :test #'eq)
+		    (exportable? decl (module decl)))))))))
+
+(defun get-immediate-using-ids (theory)
+  (mapcan #'(lambda (d)
+	      (get-immediate-using-ids* (theory-name d) theory))
+    (remove-if-not #'mod-or-using? (all-decls theory))))
+
+(defun get-immediate-using-ids* (tn theory &optional ids)
+  (if (null tn)
+      (nreverse ids)
+      (let ((id (unless (library tn)
+		   (if (eq (id tn) (id theory))
+		       (if ids
+			   (type-error tn
+			     "Target ~a may not reference itself" (id theory))
+			   (type-error tn
+			     "Theory ~a may not import itself" (id theory)))
+		       (id tn)))))
+	(get-immediate-using-ids*
+	 (target tn)
+	 theory
+	 (if id (cons id ids) ids)))))
+
+(defmethod untypecheck-theory ((ex name))
+  (assert (not (memq ex (list *boolean* *number*))))
+  (when (next-method-p) (call-next-method))
+  (untypecheck-theory (actuals ex))
+  (untypecheck-theory (mappings ex))
+  (untypecheck-theory (target ex))
+  (setf (resolutions ex) nil))
+
+(defmethod compare* ((old name) (new name))
+  (and (compare* (mod-id old) (mod-id new))
+       (compare* (library old) (library new))
+       (and (or (and (null (actuals old)) (null (actuals new)))
+		(and (actuals old) (actuals new)))
+	    (compare* (actuals old) (actuals new)))
+       (and (or (and (null (mappings old)) (null (mappings new)))
+		(and (mappings old) (mappings new)))
+	    (compare* (mappings old) (mappings new)))
+       (and (or (and (null (target old)) (null (target new)))
+		(and (target old) (target new)))
+	    (compare* (target old) (target new)))
+       (compare* (id old) (id new))))
+
+(defun pvs-soriorq-internal (which prompt num paren)
+     "Internal function to insert a skolem or inst command."
+     (let* ((count 1)
+  	(arglist "")
+  	(nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						" [CR to quit]: ")
+  					"")))
+       (while (not (string= nextarg ""))
+         (setq count (1+ count))
+         (setq arglist (concat arglist "\"" nextarg "\" "))
+         (setq nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						  " [CR to quit]: ")
+  					  "")))
+       (if (string= arglist "")
+  	(insert (concat "(" which "! " num ")"))
+  	(insert (concat "(" which " " num
+  			(if paren " ("  " ")
+  			arglist
+  			(if paren "))" ")")
+  			)))))
+
+(defun get-interpreted-mapping (theory interpretation theory-name)
+  (let* ((*subst-mod-params-map-bindings* nil)
+	 (mapping (make-subst-mod-params-map-bindings
+		   theory-name (mappings theory-name) nil))
+	 (int-decls (when interpretation (all-decls interpretation))))
+    (when interpretation
+      (dolist (decl (interpretable-declarations theory))
+	(unless (assq decl mapping)
+	  (let ((fdecl (find decl int-decls
+			     :test #'(lambda (x y)
+				       (and (declaration? y)
+					    (same-id x y))))))
+	    (unless (eq decl fdecl)
+	      (push (cons decl fdecl) mapping))))))
+    #+pvsdebug (assert (every #'cdr mapping))
+    mapping))
+
+(defmethod subst-mod-params* ((expr name-expr) modinst bindings)
+  (declare (ignore modinst))
+  (let* ((decl (declaration expr))
+	 (act (cdr (assq decl bindings))))
+    (if act
+	(if (declaration? act)
+	    (mk-name-expr (id act) nil nil
+			  (mk-resolution act
+			    (mk-modname (id (module act)))
+			    (type act)))
+	    (expr act))
+	(let ((nexpr (call-next-method)))
+	  (if (eq nexpr expr)
+	      expr
+	      (let ((ntype (type (resolution nexpr))))
+		(lcopy nexpr 'type ntype)))))))
+
+(defun get-theory-from-binfile (filename)
+  (let* ((file (make-binpath filename))
+	 (start-time (get-internal-real-time))
+	 (*bin-theories-set* nil)
+	 (vtheory (ignore-lisp-errors (fetch-object-from-file file)))
+	 (load-time (get-internal-real-time)))
+    (if (and (listp vtheory)
+	     (integerp (car vtheory))
+	     (= (car vtheory) *binfile-version*))
+	(let* ((theory (cdr vtheory))
+	       (*restore-object-hash* (make-hash-table :test #'eq))
+	       (*restore-objects-seen* nil)
+	       (*assert-if-arith-hash* (make-hash-table :test #'eq))
+	       (*subtype-of-hash* (make-hash-table :test #'equal))
+	       (*current-context* (prerestore-context (saved-context theory))))
+	  (assert (current-theory))
+	  (assert (judgement-types-hash (judgements *current-context*)))
+	  (restore-object theory)
+	  (assert (datatype-or-module? theory))
+	  (assert (not (eq (lhash-next (declarations-hash (saved-context theory)))
+			   'prelude-declarations-hash)))
+	  (postrestore-context *current-context*)
+	  (pvs-message
+	      "Restored theory from ~a.bin in ~,2,-3fs (load part took ~,2,-3fs)"
+	    filename (realtime-since start-time)
+	    (floor (- load-time start-time) millisecond-factor))
+	  theory)
+	(progn (pvs-message "Bin file version for ~a is out of date"
+		 filename)
+	       (ignore-errors (delete-file file))
+	       (dolist (thid *bin-theories-set*)
+		 (remhash thid *pvs-modules*))
+	       nil))))
+
+(defun pc-sort (decls &optional theory)
+  (assert (or theory *current-context*))
+  (let* ((th (or theory (current-theory)))
+	 (imps (cons th (complete-importings th))))
+    (assert (every #'(lambda (x)
+		       (or (from-prelude? x)
+			   (from-prelude-library? x)
+			   (memq (module x) imps)))
+		   decls))
+    (sort decls
+	  #'(lambda (x y)
+	      (cond ((eq (module x) (module y))
+		     (string< (id x) (id y)))
+		    ((from-prelude? y)
+		     (or (not (from-prelude? x))
+			 (string< (id (module x)) (id (module y)))))
+		    ((from-prelude-library? y)
+		     (and (not (from-prelude? x))
+			  (or (not (from-prelude-library? x))
+			      (string< (id (module x)) (id (module y))))))
+		    (t (and (not (from-prelude? x))
+			   (memq (module y) (memq (module x) imps)))))))))
+
+(defun complete-importings (th)
+  (multiple-value-bind (imps impnames)
+      (all-importings th)
+    (multiple-value-call #'add-generated-interpreted-theories
+			 (add-generated-adt-theories
+			  (cons th imps)
+			  (cons (mk-modname (id th)) impnames))
+			 th)))
+
+(defun theory-formula-alist (file)
+  (let* ((theories (cdr (gethash file *pvs-files*)))
+	 (ce (unless theories (context-entry-of file))))
+    (cond (theories
+	   (mapcar #'(lambda (th)
+		       (cons (id th)
+			     (mapcar #'id
+			       (remove-if-not #'(lambda (d)
+						  (provable-formula? d))
+				 (all-decls th)))))
+	     theories))
+	  (ce
+	   (mapcar #'(lambda (te)
+		       (cons (te-id te)
+			     (mapcar #'fe-id (te-formula-info te))))
+	     (ce-theories ce))))))
+
+(defun add-tcc-bindings (expr conditions substs antes &optional bindings)
+  (if (typep (car conditions) 'bind-decl)
+      ;; Recurse till there are no more bindings, so we build
+      ;;  FORALL x, y ... rather than FORALL x: FORALL y: ...
+      (let* ((bd (car conditions))
+             (nbd (or (cdr (assq bd substs)) bd)))
+        (add-tcc-bindings expr (cdr conditions) substs antes
+                          (if (or (occurs-in bd expr)
+                                  (occurs-in bd antes)
+                                  (occurs-in bd substs)
+                                  (possibly-empty-type? (type bd)))
+                              (cons nbd bindings)
+                              bindings)))
+      ;; Now we can build the universal closure
+      (let* ((nbody (substit (if antes
+                                 (make!-implication
+                                  (make!-conjunction* (reverse antes))
+                                  expr)
+                                 expr)
+                      substs))
+             (nbindings (get-tcc-closure-bindings bindings nbody))
+             (nexpr (if nbindings
+                        (make!-forall-expr nbindings nbody)
+                        nbody)))
+        (add-tcc-conditions* nexpr conditions substs nil))))
+
+(defun get-tcc-closure-bindings (bindings body)
+  (let ((fvars (freevars body)))
+    (remove-if (complement
+                #'(lambda (bd)
+                    (or (member bd fvars :key #'declaration)
+                        (possibly-empty-type? (type bd)))))
+      bindings)))        
+
+(defmethod restore-object* :around ((obj nonempty-type-decl))
+  (call-next-method)
+  (set-nonempty-type (type-value obj)))
+
+(defun xt-expr (expr)
+  (case (sim-term-op expr)
+    (NUMBER-EXPR (xt-number-expr expr))
+    (STRING-EXPR (xt-string-expr expr))
+    (NAME-EXPR (xt-name-expr expr))
+    (LIST-EXPR (xt-list-expr expr))
+    ;;(true (xt-true expr))
+    ;;(false (xt-false expr))
+    (REC-EXPR (xt-rec-expr expr))
+    (TUPLE-EXPR (xt-tuple-expr expr))
+    (TERM-EXPR (xt-term-expr expr))
+    (UNARY-TERM-EXPR (xt-unary-term-expr expr))
+    (FIELDEX (xt-fieldex expr))
+    (PROJEX (xt-projex expr))
+    (FIELDAPPL (xt-fieldappl expr))
+    (PROJAPPL (xt-projappl expr))
+    ;;(intype (xt-intype expr))
+    (COERCION (xt-coercion expr))
+    (IF-EXPR (xt-if-expr expr))
+    (APPLICATION (xt-application expr))
+    (BIND-EXPR (xt-bind-expr expr))
+    (NAME-BIND-EXPR (xt-name-bind-expr expr))
+    (SET-EXPR (xt-set-expr expr))
+    (LET-EXPR (xt-let-expr expr))
+    (WHERE-EXPR (xt-where-expr expr))
+    (UPDATE-EXPR (xt-update-expr expr))
+    ;;(override-expr (xt-override-expr expr))
+    (CASES-EXPR (xt-cases-expr expr))
+    (COND-EXPR (xt-cond-expr expr))
+    (TABLE-EXPR (xt-table-expr expr))
+    (SKOVAR (xt-skovar expr))
+    (BRACK-EXPR (xt-brack-expr expr))
+    (PAREN-VBAR-EXPR (xt-paren-vbar-expr expr))
+    (BRACE-VBAR-EXPR (xt-brace-vbar-expr expr))
+    (t (error "Unrecognized expr - ~a" expr))))
+
+$$$PVSHOME/.pvs.lisp
+;; COPY THIS FILE TO ~user/.pvs.lisp
+
+(pvs-message "Loading patches PVS3.2")
+
+(defmethod copy-untyped* ((ex fieldappl))
+  (with-slots (id actuals argument) ex
+    (copy ex
+      'id id
+      'type nil
+      'actuals (copy-untyped* actuals)
+      'argument (copy-untyped* argument))))
+
+
+(defun exportable? (decl theory)
+  (assert *current-context*)
+  (or (eq (module decl) (current-theory))
+      (from-prelude? decl)
+      (from-prelude-library? decl)
+      (unless (or (from-prelude? theory)
+		  (from-prelude-library? theory))
+	(let ((exp (exporting theory)))
+	  (if (eq (module decl) theory)
+	      (or (eq (kind exp) 'default)
+		  (if (eq (names exp) 'all)
+		      (not (member decl (but-names exp) :test #'expname-test))
+		      (member decl (names exp) :test #'expname-test)))
+	      (or ;;(eq (kind exp) 'default)
+	       (and (rassoc (module decl) (closure exp) :test #'eq)
+		    (exportable? decl (module decl)))))))))
+
+(defun get-immediate-using-ids (theory)
+  (mapcan #'(lambda (d)
+	      (get-immediate-using-ids* (theory-name d) theory))
+    (remove-if-not #'mod-or-using? (all-decls theory))))
+
+(defun get-immediate-using-ids* (tn theory &optional ids)
+  (if (null tn)
+      (nreverse ids)
+      (let ((id (unless (library tn)
+		   (if (eq (id tn) (id theory))
+		       (if ids
+			   (type-error tn
+			     "Target ~a may not reference itself" (id theory))
+			   (type-error tn
+			     "Theory ~a may not import itself" (id theory)))
+		       (id tn)))))
+	(get-immediate-using-ids*
+	 (target tn)
+	 theory
+	 (if id (cons id ids) ids)))))
+
+(defmethod untypecheck-theory ((ex name))
+  (assert (not (memq ex (list *boolean* *number*))))
+  (when (next-method-p) (call-next-method))
+  (untypecheck-theory (actuals ex))
+  (untypecheck-theory (mappings ex))
+  (untypecheck-theory (target ex))
+  (setf (resolutions ex) nil))
+
+(defmethod compare* ((old name) (new name))
+  (and (compare* (mod-id old) (mod-id new))
+       (compare* (library old) (library new))
+       (and (or (and (null (actuals old)) (null (actuals new)))
+		(and (actuals old) (actuals new)))
+	    (compare* (actuals old) (actuals new)))
+       (and (or (and (null (mappings old)) (null (mappings new)))
+		(and (mappings old) (mappings new)))
+	    (compare* (mappings old) (mappings new)))
+       (and (or (and (null (target old)) (null (target new)))
+		(and (target old) (target new)))
+	    (compare* (target old) (target new)))
+       (compare* (id old) (id new))))
+
+(defun pvs-soriorq-internal (which prompt num paren)
+     "Internal function to insert a skolem or inst command."
+     (let* ((count 1)
+  	(arglist "")
+  	(nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						" [CR to quit]: ")
+  					"")))
+       (while (not (string= nextarg ""))
+         (setq count (1+ count))
+         (setq arglist (concat arglist "\"" nextarg "\" "))
+         (setq nextarg (read-from-minibuffer (concat which " " prompt " " 
+  (number-to-string count)
+  						  " [CR to quit]: ")
+  					  "")))
+       (if (string= arglist "")
+  	(insert (concat "(" which "! " num ")"))
+  	(insert (concat "(" which " " num
+  			(if paren " ("  " ")
+  			arglist
+  			(if paren "))" ")")
+  			)))))
+
+(defun get-interpreted-mapping (theory interpretation theory-name)
+  (let* ((*subst-mod-params-map-bindings* nil)
+	 (mapping (make-subst-mod-params-map-bindings
+		   theory-name (mappings theory-name) nil))
+	 (int-decls (when interpretation (all-decls interpretation))))
+    (when interpretation
+      (dolist (decl (interpretable-declarations theory))
+	(unless (assq decl mapping)
+	  (let ((fdecl (find decl int-decls
+			     :test #'(lambda (x y)
+				       (and (declaration? y)
+					    (same-id x y))))))
+	    (unless (eq decl fdecl)
+	      (push (cons decl fdecl) mapping))))))
+    #+pvsdebug (assert (every #'cdr mapping))
+    mapping))
+
+(defmethod subst-mod-params* ((expr name-expr) modinst bindings)
+  (declare (ignore modinst))
+  (let* ((decl (declaration expr))
+	 (act (cdr (assq decl bindings))))
+    (if act
+	(if (declaration? act)
+	    (mk-name-expr (id act) nil nil
+			  (mk-resolution act
+			    (mk-modname (id (module act)))
+			    (type act)))
+	    (expr act))
+	(let ((nexpr (call-next-method)))
+	  (if (eq nexpr expr)
+	      expr
+	      (let ((ntype (type (resolution nexpr))))
+		(lcopy nexpr 'type ntype)))))))
+
+(defun get-theory-from-binfile (filename)
+  (let* ((file (make-binpath filename))
+	 (start-time (get-internal-real-time))
+	 (*bin-theories-set* nil)
+	 (vtheory (ignore-lisp-errors (fetch-object-from-file file)))
+	 (load-time (get-internal-real-time)))
+    (if (and (listp vtheory)
+	     (integerp (car vtheory))
+	     (= (car vtheory) *binfile-version*))
+	(let* ((theory (cdr vtheory))
+	       (*restore-object-hash* (make-hash-table :test #'eq))
+	       (*restore-objects-seen* nil)
+	       (*assert-if-arith-hash* (make-hash-table :test #'eq))
+	       (*subtype-of-hash* (make-hash-table :test #'equal))
+	       (*current-context* (prerestore-context (saved-context theory))))
+	  (assert (current-theory))
+	  (assert (judgement-types-hash (judgements *current-context*)))
+	  (restore-object theory)
+	  (assert (datatype-or-module? theory))
+	  (assert (not (eq (lhash-next (declarations-hash (saved-context theory)))
+			   'prelude-declarations-hash)))
+	  (postrestore-context *current-context*)
+	  (pvs-message
+	      "Restored theory from ~a.bin in ~,2,-3fs (load part took ~,2,-3fs)"
+	    filename (realtime-since start-time)
+	    (floor (- load-time start-time) millisecond-factor))
+	  theory)
+	(progn (pvs-message "Bin file version for ~a is out of date"
+		 filename)
+	       (ignore-errors (delete-file file))
+	       (dolist (thid *bin-theories-set*)
+		 (remhash thid *pvs-modules*))
+	       nil))))
+
+(defun pc-sort (decls &optional theory)
+  (assert (or theory *current-context*))
+  (let* ((th (or theory (current-theory)))
+	 (imps (cons th (complete-importings th))))
+    (assert (every #'(lambda (x)
+		       (or (from-prelude? x)
+			   (from-prelude-library? x)
+			   (memq (module x) imps)))
+		   decls))
+    (sort decls
+	  #'(lambda (x y)
+	      (cond ((eq (module x) (module y))
+		     (string< (id x) (id y)))
+		    ((from-prelude? y)
+		     (or (not (from-prelude? x))
+			 (string< (id (module x)) (id (module y)))))
+		    ((from-prelude-library? y)
+		     (and (not (from-prelude? x))
+			  (or (not (from-prelude-library? x))
+			      (string< (id (module x)) (id (module y))))))
+		    (t (and (not (from-prelude? x))
+			   (memq (module y) (memq (module x) imps)))))))))
+
+(defun complete-importings (th)
+  (multiple-value-bind (imps impnames)
+      (all-importings th)
+    (multiple-value-call #'add-generated-interpreted-theories
+			 (add-generated-adt-theories
+			  (cons th imps)
+			  (cons (mk-modname (id th)) impnames))
+			 th)))
+
+(defun theory-formula-alist (file)
+  (let* ((theories (cdr (gethash file *pvs-files*)))
+	 (ce (unless theories (context-entry-of file))))
+    (cond (theories
+	   (mapcar #'(lambda (th)
+		       (cons (id th)
+			     (mapcar #'id
+			       (remove-if-not #'(lambda (d)
+						  (provable-formula? d))
+				 (all-decls th)))))
+	     theories))
+	  (ce
+	   (mapcar #'(lambda (te)
+		       (cons (te-id te)
+			     (mapcar #'fe-id (te-formula-info te))))
+	     (ce-theories ce))))))
+
+(defun add-tcc-bindings (expr conditions substs antes &optional bindings)
+  (if (typep (car conditions) 'bind-decl)
+      ;; Recurse till there are no more bindings, so we build
+      ;;  FORALL x, y ... rather than FORALL x: FORALL y: ...
+      (let* ((bd (car conditions))
+             (nbd (or (cdr (assq bd substs)) bd)))
+        (add-tcc-bindings expr (cdr conditions) substs antes
+                          (if (or (occurs-in bd expr)
+                                  (occurs-in bd antes)
+                                  (occurs-in bd substs)
+                                  (possibly-empty-type? (type bd)))
+                              (cons nbd bindings)
+                              bindings)))
+      ;; Now we can build the universal closure
+      (let* ((nbody (substit (if antes
+                                 (make!-implication
+                                  (make!-conjunction* (reverse antes))
+                                  expr)
+                                 expr)
+                      substs))
+             (nbindings (get-tcc-closure-bindings bindings nbody))
+             (nexpr (if nbindings
+                        (make!-forall-expr nbindings nbody)
+                        nbody)))
+        (add-tcc-conditions* nexpr conditions substs nil))))
+
+(defun get-tcc-closure-bindings (bindings body)
+  (let ((fvars (freevars body)))
+    (remove-if (complement
+                #'(lambda (bd)
+                    (or (member bd fvars :key #'declaration)
+                        (possibly-empty-type? (type bd)))))
+      bindings)))        
+
+(defmethod restore-object* :around ((obj nonempty-type-decl))
+  (call-next-method)
+  (set-nonempty-type (type-value obj)))
+
+(defun xt-expr (expr)
+  (case (sim-term-op expr)
+    (NUMBER-EXPR (xt-number-expr expr))
+    (STRING-EXPR (xt-string-expr expr))
+    (NAME-EXPR (xt-name-expr expr))
+    (LIST-EXPR (xt-list-expr expr))
+    ;;(true (xt-true expr))
+    ;;(false (xt-false expr))
+    (REC-EXPR (xt-rec-expr expr))
+    (TUPLE-EXPR (xt-tuple-expr expr))
+    (TERM-EXPR (xt-term-expr expr))
+    (UNARY-TERM-EXPR (xt-unary-term-expr expr))
+    (FIELDEX (xt-fieldex expr))
+    (PROJEX (xt-projex expr))
+    (FIELDAPPL (xt-fieldappl expr))
+    (PROJAPPL (xt-projappl expr))
+    ;;(intype (xt-intype expr))
+    (COERCION (xt-coercion expr))
+    (IF-EXPR (xt-if-expr expr))
+    (APPLICATION (xt-application expr))
+    (BIND-EXPR (xt-bind-expr expr))
+    (NAME-BIND-EXPR (xt-name-bind-expr expr))
+    (SET-EXPR (xt-set-expr expr))
+    (LET-EXPR (xt-let-expr expr))
+    (WHERE-EXPR (xt-where-expr expr))
+    (UPDATE-EXPR (xt-update-expr expr))
+    ;;(override-expr (xt-override-expr expr))
+    (CASES-EXPR (xt-cases-expr expr))
+    (COND-EXPR (xt-cond-expr expr))
+    (TABLE-EXPR (xt-table-expr expr))
+    (SKOVAR (xt-skovar expr))
+    (BRACK-EXPR (xt-brack-expr expr))
+    (PAREN-VBAR-EXPR (xt-paren-vbar-expr expr))
+    (BRACE-VBAR-EXPR (xt-brace-vbar-expr expr))
+    (t (error "Unrecognized expr - ~a" expr))))
+
+$$$time_triggered_system.pvs
+time_triggered_system: THEORY
+BEGIN
+  
+%  IMPORTING untimed_system
+
+% -- UNTIMED SYSTEM -----------------------------------------------------
+% To satisfy the typechecker for the theory interpretations, we explicitly
+% place untimed system in this theory rather than importing it.
+
+  proc, mess, state: TYPE+
+
+% OLD
+%  init_state: TYPE+ FROM state
+% NEW -- to satisfy the typechecker for implementations
+  init_state: nonempty_pred[state]
+
+  null: mess
+  
+  in_nbrs, out_nbrs: [proc -> setof[proc]]
+  
+  p, q: VAR proc
+  s: VAR state
+  
+  channels_match: AXIOM in_nbrs(p)(q) IFF out_nbrs(q)(p)
+
+  msg(p): [state, (out_nbrs(p)) -> mess]
+  inputs(p): TYPE = [(in_nbrs(p)) -> mess]
+  trans(p): [state, inputs(p) -> state]
+  
+  global_state: TYPE = [proc -> state]
+  global_init: TYPE = [proc -> (init_state)]
+  
+  round: TYPE = nat
+
+  run(ginit: global_init)(r: round):  RECURSIVE global_state = 
+     IF r = 0 THEN ginit
+     ELSE LAMBDA p: trans(p)(s(p), (LAMBDA (q:(in_nbrs(p))): msg(q)(s(q), p)))
+       WHERE s = run(ginit)(r - 1)
+     ENDIF
+   MEASURE r
+% ----------------------------------------------------------------------
+  
+  m: VAR mess
+
+% OLD
+% clocktime: TYPE = nat
+% NEW
+  clocktime: TYPE = integer
+
+  realtime: TYPE = real
+  
+  T: VAR clocktime
+  t, t1, t2: VAR realtime
+  C(p, t): clocktime
+  
+  rho: {x: real | 0 < x AND x < 1}
+  
+% OLD  
+% drift_rate: AXIOM (1 - rho) * (t1 - t2) <= C(p, t1) - C(p, t2)
+%           AND C(p, t1) - C(p, t2) <= (1 + rho) * (t1 - t2)
+% NEW
+  drift_rate: AXIOM 
+  t1 >= t2 IMPLIES
+    floor((1 - rho) * (t1 - t2)) <= C(p, t1) - C(p, t2)
+      AND C(p, t1) - C(p, t2) <= ceiling((1 + rho) * (t1 - t2))
+
+% OLD
+% monotone_clock: AXIOM t1 < t2 => C(p, t1) < C(p, t2)
+% NEW
+  monotone_clock: LEMMA t1 < t2 => C(p, t1) <= C(p, t2)
+  
+  Sigma: clocktime
+  
+  clock_sync: AXIOM abs(C(p, t) - C(q, t)) < Sigma
+  
+  i, j, r: VAR round
+  
+  sched(r): clocktime
+
+  dur(r): clocktime = sched(r + 1) - sched(r)
+
+  D(r): clocktime
+  P(r): clocktime
+  
+  constraint1: AXIOM 0 < D(r) AND D(r) < P(r) AND P(r) < dur(r)
+  
+  constraint2: AXIOM D(r) >= Sigma
+
+% OLD   
+% monotone_sched: AXIOM i < j IMPLIES sched(i) < sched(j)
+% NEW
+  monotone_sched: LEMMA sched(i) < sched(i+1)
+
+  sendtime(p, r): realtime
+  
+  sendtime_ax: AXIOM C(p, sendtime(p, r)) = sched(r) + D(r)
+  
+  in_comp_phase(t, p, r): bool = 
+      LET T = C(p, t) IN sched(r) + P(r) <= T AND T < sched(r+1)
+
+  comp_phase: LEMMA i < j => sched(i) + P(i) < sched(j)
+
+  ginit: VAR global_init
+
+  ttss(ginit)(p)(T): state
+  
+  sent(p, (q:(out_nbrs(p))), m, t): bool
+  recv(q, (p:(in_nbrs(q))), m, t): bool
+  
+  comm_phase1: AXIOM
+       FORALL (q: (out_nbrs(p))): sent(p, q, m, sendtime(p, r))
+           WHERE m = msg(p)(ttss(ginit)(p)(sched(r)), q)
+  
+  comm_phase2: AXIOM FORALL (q: (out_nbrs(p))): sent(p, q, m, t)
+   => EXISTS r: t = sendtime(p, r) AND m = msg(p)(ttss(ginit)(p)(sched(r)), q)
+  
+  delta: {x: realtime | 0 <= x}
+  delay: TYPE = {x: realtime | 0 <= x AND x <= delta}
+  d: VAR delay
+
+% OLD  
+%   max_delay: AXIOM FORALL p, (q: (out_nbrs(p))), m, t:
+%      sent(p, q, m, t) IFF EXISTS (d: delay): recv(q, p, m, t + d)
+% NEW
+  max_delay: AXIOM FORALL p, (q: (out_nbrs(p))), m, t:
+         (EXISTS (d: delay): sent(p, q, m, t) => recv(q, p, m, t + d))
+     AND (EXISTS (d: delay): recv(q, p, m, t) => sent(p, q, m, t - d))
+
+% OLD
+%   max_delay1: LEMMA FORALL p, (q: (out_nbrs(p))), m, t:
+%      sent(p, q, m, t) => EXISTS (d: delay):  recv(q, p, m, t + d)
+  
+% OLD
+%   max_delay2: LEMMA FORALL q, (p: (in_nbrs(q))), m, t:
+%      recv(q, p, m, t) => EXISTS (d: delay): sent(p, q, m, t - d)
+  
+% OLD
+% constraint3: AXIOM P(i) > D(i) + Sigma + (1 + rho) * delta
+% NEW
+  constraint3: AXIOM P(i) > D(i) + Sigma + ceiling((1 + rho) * delta)
+  
+  rho_prop1: LEMMA (1 - rho) * d >= 0
+  rho_prop2: LEMMA (1 + rho) * d >= 0
+
+% OLD  
+% constraint3_lemma: LEMMA P(i) > D(i) + Sigma + (1 + rho) * d
+% NEW
+  constraint3_lemma: LEMMA P(i) > D(i) + Sigma + ceiling((1 + rho) * d)
+  
+  in_comm_phase(t, p, r): bool = 
+      LET T = C(p, t) IN sched(r) <= T AND T < sched(r)+P(r)
+
+  arrival_prop: LEMMA in_comm_phase(sendtime(q, r)+d, p, r)
+  
+  recv_prop: LEMMA FORALL r, p, (q: (in_nbrs(p))):
+     EXISTS (m: mess), (t: realtime): in_comm_phase(t, p, r) AND recv(p, q, m, t)
+  
+  ttin(p)(T)((q: (in_nbrs(p)))): mess
+  
+  ttin_ax: AXIOM sched(r) + P(r) <= T AND T < sched(r + 1)
+     => FORALL (q: (in_nbrs(p))):
+            ttin(p)(T)(q) = epsilon! (m): 
+                 EXISTS t: in_comm_phase(t, p, r) AND recv(p, q, m, t)
+  
+  % Proof mended
+  ttin_prop: LEMMA FORALL (q: (in_nbrs(p))): LET s = run(ginit)(r)(q) IN
+    ttss(ginit)(q)(sched(r)) = s => ttin(p)(sched(r)+P(r))(q) = msg(q)(s,p)
+
+  ttss_start: AXIOM ttss(ginit)(p)(sched(r))
+        = IF r = 0 THEN ginit(p)
+          ELSE trans(p)(ttss(ginit)(p)(T), ttin(p)(T))
+                  WHERE T = sched(r - 1) + P(r-1)
+          ENDIF
+  
+  ttss_comm: AXIOM sched(r) <= T AND T <= sched(r) + P(r)
+     => ttss(ginit)(p)(T) = ttss(ginit)(p)(sched(r))
+
+  % Proof mended
+  Main_Lemma: LEMMA ttss(ginit)(p)(sched(r)) = run(ginit)(r)(p)
+  
+  gs(r): realtime
+  
+  gs_ax: AXIOM (FORALL q: C(q, gs(r)) >= sched(r))
+           AND (EXISTS p: C(p, gs(r)) = sched(r))
+  
+  gi: global_init
+
+  gt(t)(p): state = ttss(gi)(p)(C(p, t))
+
+  gu(r): global_state = run(gi)(r)
+
+% Proof mended
+  Theorem_1: THEOREM gt(gs(r)) = gu(r)
+
+END time_triggered_system
+
+
+$$$time_triggered_system.prf
+(time_triggered_system
+ (init_state_TCC1 0
+  (init_state_TCC1-1 nil 3321372505 3328164974
+   ("" (inst + "LAMBDA (s: state): TRUE")
+    (("" (use "state_nonempty") nil nil)) nil)
+   proved-complete
+   ((state_nonempty formula-decl nil time_triggered_system nil)
+    (TRUE const-decl "bool" booleans nil)
+    (nonempty_pred type-eq-decl nil orders nil)
+    (pred type-eq-decl nil defined_types nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (state nonempty-type-decl nil time_triggered_system nil))
+   466 300 t nil))
+ (run_TCC1 0
+  (run_TCC1-1 nil 3321360612 3328164975 ("" (subtype-tcc) nil nil)
+   proved-complete
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (round type-eq-decl nil time_triggered_system nil))
+   685 330 nil nil))
+ (run_TCC2 0
+  (run_TCC2-1 nil 3321360612 3328164975 ("" (termination-tcc) nil nil)
+   proved-complete nil 48 40 nil nil))
+ (run_TCC3 0
+  (run_TCC3-1 nil 3321360612 3328164976
+   ("" (skosimp*)
+    (("" (use "channels_match") (("" (assert) nil nil)) nil)) nil)
+   proved-complete
+   ((channels_match formula-decl nil time_triggered_system nil)
+    (in_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (proc nonempty-type-decl nil time_triggered_system nil))
+   615 280 t nil))
+ (rho_TCC1 0
+  (rho_TCC1-1 nil 3320889218 3328164976 ("" (inst 1 "1/2") nil nil)
+   proved-complete
+   ((/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/= const-decl "boolean" notequal nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (< const-decl "bool" reals nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil))
+   332 310 nil nil))
+ (monotone_clock 0
+  (monotone_clock-1 nil 3321359200 3328165443
+   ("" (skosimp*)
+    (("" (lemma "drift_rate")
+      (("" (inst - "p!1" "t2!1" "t1!1")
+        (("" (assert)
+          (("" (flatten)
+            ((""
+              (case "floor(rho * t1!1 - rho * t2!1 + (t2!1 - t1!1)) >= 0")
+              (("1" (assert) nil nil)
+               ("2" (hide 2 -2 -1)
+                (("2"
+                  (case "rho * t1!1 - rho * t2!1 + (t2!1 - t1!1) = (1 - rho) * (t2!1 - t1!1)")
+                  (("1" (lemma "pos_times_le")
+                    (("1" (inst - "1 - rho" "t2!1 - t1!1")
+                      (("1" (assert) nil nil)) nil))
+                    nil)
+                   ("2" (assert) nil nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((drift_rate formula-decl nil time_triggered_system nil)
+    (rho const-decl "{x: real | 0 < x AND x < 1}" time_triggered_system
+     nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (- const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (< const-decl "bool" reals nil) (<= const-decl "bool" reals nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (>= const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (pos_times_le formula-decl nil real_props nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (proc nonempty-type-decl nil time_triggered_system nil))
+   2222 1610 t shostak))
+ (monotone_sched 0
+  (monotone_sched-1 nil 3328165093 3328165444
+   ("" (skosimp*)
+    (("" (use "constraint1")
+      (("" (flatten) (("" (expand "dur") (("" (assert) nil nil)) nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((constraint1 formula-decl nil time_triggered_system nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (>= const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (dur const-decl "clocktime" time_triggered_system nil))
+   1053 890 t shostak))
+ (comp_phase 0
+  (comp_phase-1 nil 3320889218 3328165447
+   ("" (skosimp)
+    ((""
+      (case "forall (x:above(0)): sched(i!1) + P(i!1) < sched(i!1+x)")
+      (("1" (inst - "j!1-i!1")
+        (("1" (assert) nil nil) ("2" (assert) nil nil)) nil)
+       ("2" (induct "x")
+        (("1" (lemma "constraint1") (("1" (grind) nil nil)) nil)
+         ("2" (skosimp)
+          (("2" (lemma "monotone_sched")
+            (("2" (inst - "i!1+ja!1") (("2" (assert) nil nil)) nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((P const-decl "clocktime" time_triggered_system nil)
+    (sched const-decl "clocktime" time_triggered_system nil)
+    (clocktime type-eq-decl nil time_triggered_system nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (>= const-decl "bool" reals nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (< const-decl "bool" reals nil)
+    (above nonempty-type-eq-decl nil integers nil)
+    (> const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (i!1 skolem-const-decl "round" time_triggered_system nil)
+    (j!1 skolem-const-decl "round" time_triggered_system nil)
+    (- const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (monotone_sched formula-decl nil time_triggered_system nil)
+    (constraint1 formula-decl nil time_triggered_system nil)
+    (dur const-decl "clocktime" time_triggered_system nil)
+    (above_induction formula-decl nil bounded_int_inductions nil)
+    (pred type-eq-decl nil defined_types nil))
+   2713 2450 t nil))
+ (delta_TCC1 0
+  (delta_TCC1-1 nil 3320889218 3328164982 ("" (inst 1 "0") nil nil)
+   proved-complete
+   ((<= const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil))
+   47 50 nil nil))
+ (max_delay_TCC1 0
+  (max_delay_TCC1-1 nil 3320889218 3328164983
+   ("" (skosimp) (("" (use "channels_match") (("" (assert) nil)))) nil)
+   proved-complete
+   ((channels_match formula-decl nil time_triggered_system nil)
+    (out_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (proc nonempty-type-decl nil time_triggered_system nil))
+   301 110 nil nil))
+ (max_delay_TCC2 0
+  (max_delay_TCC2-1 nil 3325428224 3328164983
+   ("" (skosimp*)
+    (("" (use "channels_match") (("" (assert) nil nil)) nil)) nil)
+   proved-complete
+   ((channels_match formula-decl nil time_triggered_system nil)
+    (out_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (proc nonempty-type-decl nil time_triggered_system nil))
+   239 150 t nil))
+ (rho_prop1 0
+  (rho_prop1-1 nil 3320889218 3328165447
+   ("" (skosimp) (("" (use "pos_times_ge") (("" (ground) nil)))) nil)
+   proved
+   ((pos_times_ge formula-decl nil real_props nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (<= const-decl "bool" reals nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (rho const-decl "{x: real | 0 < x AND x < 1}" time_triggered_system
+     nil)
+    (< const-decl "bool" reals nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (- const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil))
+   385 360 nil nil))
+ (rho_prop2 0
+  (rho_prop2-1 nil 3320889218 3328165448
+   ("" (skosimp) (("" (use "pos_times_ge") (("" (ground) nil)))) nil)
+   proved
+   ((pos_times_ge formula-decl nil real_props nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (<= const-decl "bool" reals nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (rho const-decl "{x: real | 0 < x AND x < 1}" time_triggered_system
+     nil)
+    (< const-decl "bool" reals nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil))
+   805 700 nil nil))
+ (constraint3_lemma 0
+  (constraint3_lemma-1 nil 3320889218 3328165451
+   ("" (skosimp)
+    (("" (use "constraint3")
+      (("" (lemma "both_sides_times_pos_le2")
+        (("" (inst - "1+rho" "d!1" "delta")
+          (("1" (assert) nil nil) ("2" (assert) nil nil)) nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((constraint3 formula-decl nil time_triggered_system nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (>= const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (< const-decl "bool" reals nil)
+    (rho const-decl "{x: real | 0 < x AND x < 1}" time_triggered_system
+     nil)
+    (> const-decl "bool" reals nil)
+    (nonneg_real nonempty-type-eq-decl nil real_types nil)
+    (posreal nonempty-type-eq-decl nil real_types nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (<= const-decl "bool" reals nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (both_sides_times_pos_le2 formula-decl nil real_props nil))
+   3261 2950 t nil))
+ (arrival_prop 0
+  (arrival_prop-1 nil 3320889218 3328165456
+   ("" (skosimp)
+    (("" (expand "in_comm_phase")
+      (("" (use "sendtime_ax")
+        (("" (name "tt" "sendtime(q!1, r!1)+d!1")
+          ((""
+            (lemma "drift_rate" :subst
+             ("p" "q!1" "t1" "tt" "t2" "tt-d!1"))
+            (("" (lemma "rho_prop1" :subst ("d" "d!1"))
+              (("" (lemma "rho_prop2" :subst ("d" "d!1"))
+                (("" (assert)
+                  (("" (flatten)
+                    (("" (use "constraint2")
+                      ((""
+                        (lemma "clock_sync" :subst
+                         ("p" "p!1" "q" "q!1" "t" "tt"))
+                        ((""
+                          (lemma "constraint3_lemma" :subst
+                           ("d" "d!1" "i" "r!1"))
+                          (("" (assert)
+                            (("" (expand "abs")
+                              ((""
+                                (assert)
+                                nil))))))))))))))))))))))))))))
+    nil)
+   proved
+   ((in_comm_phase const-decl "bool" time_triggered_system nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (<= const-decl "bool" reals nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (sendtime const-decl "realtime" time_triggered_system nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (rho_prop1 formula-decl nil time_triggered_system nil)
+    (constraint2 formula-decl nil time_triggered_system nil)
+    (constraint3_lemma formula-decl nil time_triggered_system nil)
+    (abs const-decl "{n: nonneg_real | n >= m}" real_defs nil)
+    (clock_sync formula-decl nil time_triggered_system nil)
+    (rho_prop2 formula-decl nil time_triggered_system nil)
+    (- const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (drift_rate formula-decl nil time_triggered_system nil)
+    (proc nonempty-type-decl nil time_triggered_system nil)
+    (number nonempty-type-decl nil numbers nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (>= const-decl "bool" reals nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (sendtime_ax formula-decl nil time_triggered_system nil))
+   4116 3510 nil nil))
+ (recv_prop 0
+  (recv_prop-1 nil 3320889218 3328165457
+   ("" (skosimp)
+    (("" (lemma "comm_phase1")
+      (("" (inst - _ "q!1" "r!1" "p!1")
+        (("1" (inst - "epsilon! (g:global_init): true")
+          (("1" (assert)
+            (("1" (lemma "sendtime_ax")
+              (("1" (inst?)
+                (("1" (assert)
+                  (("1" (lemma "channels_match" ("p" "p!1" "q" "q!1"))
+                    (("1" (assert)
+                      (("1" (lemma "max_delay")
+                        (("1" (inst?)
+                          (("1" (flatten)
+                            (("1" (assert)
+                              (("1"
+                                (skosimp)
+                                (("1"
+                                  (inst?)
+                                  (("1"
+                                    (assert)
+                                    (("1"
+                                      (lemma "arrival_prop")
+                                      (("1" (inst?) nil nil))
+                                      nil))
+                                    nil))
+                                  nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil)
+         ("2" (assert)
+          (("2" (use "channels_match" ("p" "p!1" "q" "q!1"))
+            (("2" (assert) nil nil)) nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((comm_phase1 formula-decl nil time_triggered_system nil)
+    (TRUE const-decl "bool" booleans nil)
+    (epsilon const-decl "T" epsilons nil)
+    (global_init type-eq-decl nil time_triggered_system nil)
+    (init_state const-decl "nonempty_pred[state]" time_triggered_system
+     nil)
+    (nonempty_pred type-eq-decl nil orders nil)
+    (pred type-eq-decl nil defined_types nil)
+    (state nonempty-type-decl nil time_triggered_system nil)
+    (sendtime_ax formula-decl nil time_triggered_system nil)
+    (mess nonempty-type-decl nil time_triggered_system nil)
+    (msg const-decl "[state, (out_nbrs(p)) -> mess]"
+     time_triggered_system nil)
+    (clocktime type-eq-decl nil time_triggered_system nil)
+    (ttss const-decl "state" time_triggered_system nil)
+    (sched const-decl "clocktime" time_triggered_system nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (sendtime const-decl "realtime" time_triggered_system nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (arrival_prop formula-decl nil time_triggered_system nil)
+    (max_delay formula-decl nil time_triggered_system nil)
+    (channels_match formula-decl nil time_triggered_system nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (>= const-decl "bool" reals nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number nonempty-type-decl nil numbers nil)
+    (proc nonempty-type-decl nil time_triggered_system nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (setof type-eq-decl nil defined_types nil)
+    (out_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (in_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (p!1 skolem-const-decl "proc" time_triggered_system nil)
+    (q!1 skolem-const-decl "(in_nbrs(p!1))" time_triggered_system nil))
+   1766 1280 t nil))
+ (ttin_prop_TCC1 0
+  (ttin_prop_TCC1-1 nil 3320889218 3328164996
+   ("" (skosimp) (("" (use "channels_match") (("" (assert) nil)))) nil)
+   proved-complete
+   ((channels_match formula-decl nil time_triggered_system nil)
+    (in_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (proc nonempty-type-decl nil time_triggered_system nil))
+   210 120 nil nil))
+ (ttin_prop 0
+  (ttin_prop-3 nil 3328165546 3328166070
+   ("" (skosimp*)
+    (("" (beta *)
+      (("" (use "ttin_ax")
+        (("" (use "constraint1")
+          (("" (ground)
+            (("1" (inst?)
+              (("1" (replace -1 :hide? t)
+                (("1" (use "epsilon_ax[mess]")
+                  (("1" (ground)
+                    (("1" (skosimp)
+                      (("1" (use "max_delay")
+                        (("1" (flatten)
+                          (("1" (hide -1)
+                            (("1" (assert)
+                              (("1"
+                                (skosimp)
+                                (("1"
+                                  (use "comm_phase2")
+                                  (("1"
+                                    (prop)
+                                    (("1"
+                                      (skosimp)
+                                      (("1"
+                                        (replace -2)
+                                        (("1"
+                                          (case-replace "r!1=r!2")
+                                          (("1" (assert) nil nil)
+                                           ("2"
+                                            (hide -3 -5 -6 -7 -8 -9 2)
+                                            (("2"
+                                              (lemma "arrival_prop")
+                                              (("2"
+                                                (inst?)
+                                                (("2"
+                                                  (inst -1 "d!1" "p!1")
+                                                  (("2"
+                                                    (replace
+
+                                                     -3
+                                                     :hide?
+
+                                                     t
+                                                     :dir
+                                                     rl)
+                                                    (("2"
+                                                      (expand
+                                                       "in_comm_phase")
+                                                      (("2"
+                                                        (flatten)
+                                                        (("2"
+                                                          (case
+                                                           "r!2<r!1")
+                                                          (("1"
+                                                            (use
+                                                             "comp_phase")
+                                                            (("1"
+                                                              (assert)
+                                                              nil
+                                                              nil))
+                                                            nil)
+                                                           ("2"
+                                                            (case
+                                                             "r!1<r!2")
+                                                            (("1"
+                                                              (use
+                                                               "comp_phase")
+                                                              (("1"
+                                                                (assert)
+                                                                nil
+                                                                nil))
+                                                              nil)
+                                                             ("2"
+                                                              (assert)
+                                                              nil
+                                                              nil))
+                                                            nil))
+                                                          nil))
+                                                        nil))
+                                                      nil))
+                                                    nil))
+                                                  nil))
+                                                nil))
+                                              nil))
+                                            nil))
+                                          nil))
+                                        nil))
+                                      nil))
+                                    nil)
+                                   ("2"
+                                    (typepred! "q!1")
+                                    (("2"
+                                      (use "channels_match")
+                                      (("2" (assert) nil nil))
+                                      nil))
+                                    nil))
+                                  nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil)
+                         ("2" (typepred! "q!1")
+                          (("2" (use "channels_match")
+                            (("2" (assert) nil nil)) nil))
+                          nil))
+                        nil))
+                      nil)
+                     ("2" (hide 2)
+                      (("2" (use "recv_prop")
+                        (("2" (assert)
+                          (("2" (skosimp)
+                            (("2" (inst?) (("2" (assert) nil nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil)
+             ("2" (lemma "comp_phase")
+              (("2" (inst - "r!1" "r!1 + 1") (("2" (assert) nil nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((constraint1 formula-decl nil time_triggered_system nil)
+    (in_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (mess nonempty-type-decl nil time_triggered_system nil)
+    (epsilon_ax formula-decl nil epsilons nil)
+    (pred type-eq-decl nil defined_types nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (in_comm_phase const-decl "bool" time_triggered_system nil)
+    (recv const-decl "bool" time_triggered_system nil)
+    (recv_prop formula-decl nil time_triggered_system nil)
+    (comm_phase2 formula-decl nil time_triggered_system nil)
+    (- const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (<= const-decl "bool" reals nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (state nonempty-type-decl nil time_triggered_system nil)
+    (nonempty_pred type-eq-decl nil orders nil)
+    (init_state const-decl "nonempty_pred[state]" time_triggered_system
+     nil)
+    (global_init type-eq-decl nil time_triggered_system nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (arrival_prop formula-decl nil time_triggered_system nil)
+    (< const-decl "bool" reals nil)
+    (comp_phase formula-decl nil time_triggered_system nil)
+    (channels_match formula-decl nil time_triggered_system nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (out_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (p!1 skolem-const-decl "proc" time_triggered_system nil)
+    (q!1 skolem-const-decl "(in_nbrs(p!1))" time_triggered_system nil)
+    (epsilon const-decl "T" epsilons nil)
+    (max_delay formula-decl nil time_triggered_system nil)
+    (number nonempty-type-decl nil numbers nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (clocktime type-eq-decl nil time_triggered_system nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (>= const-decl "bool" reals nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (sched const-decl "clocktime" time_triggered_system nil)
+    (P const-decl "clocktime" time_triggered_system nil)
+    (proc nonempty-type-decl nil time_triggered_system nil)
+    (ttin_ax formula-decl nil time_triggered_system nil))
+   496299 75000 t nil)
+  (ttin_prop-2 nil 3321367612 3328165460
+   ("" (skosimp*)
+    (("" (beta *)
+      (("" (use "ttin_ax")
+        (("" (use "constraint1")
+          (("" (ground)
+            (("1" (inst?)
+              (("1" (replace -1 :hide? t)
+                (("1" (use "epsilon_ax[mess]")
+                  (("1" (ground)
+                    (("1" (skosimp)
+                      (("1" (use "max_delay")
+                        (("1" (flatten)
+                          (("1" (hide -1)
+                            (("1" (assert)
+                              (("1"
+                                (skosimp)
+                                (("1"
+                                  (use "comm_phase2")
+                                  (("1"
+                                    (assert)
+                                    (("1"
+                                      (skosimp)
+                                      (("1"
+                                        (replace -2)
+                                        (("1"
+                                          (case-replace "r!1=r!2")
+                                          (("1" (assert) nil nil)
+                                           ("2"
+                                            (hide
+                                             -2
+                                             -3
+                                             -5
+                                             -6
+                                             -7
+                                             -8
+                                             -9
+                                             2)
+                                            (("2"
+                                              (lemma "arrival_prop")
+                                              (("2"
+                                                (inst?)
+                                                (("2"
+                                                  (inst -1 "d!1" "p!1")
+                                                  (("2"
+                                                    (replace
+
+                                                     -2
+                                                     :hide?
+
+                                                     t
+                                                     :dir
+                                                     rl)
+                                                    (("2"
+                                                      (expand
+                                                       "in_comm_phase")
+                                                      (("2"
+                                                        (flatten)
+                                                        (("2"
+                                                          (case
+                                                           "r!2<r!1")
+                                                          (("1"
+                                                            (use
+                                                             "comp_phase")
+                                                            (("1"
+                                                              (assert)
+                                                              nil
+                                                              nil))
+                                                            nil)
+                                                           ("2"
+                                                            (case
+                                                             "r!1<r!2")
+                                                            (("1"
+                                                              (use
+                                                               "comp_phase")
+                                                              (("1"
+                                                                (assert)
+                                                                nil
+                                                                nil))
+                                                              nil)
+                                                             ("2"
+                                                              (assert)
+                                                              nil
+                                                              nil))
+                                                            nil))
+                                                          nil))
+                                                        nil))
+                                                      nil))
+                                                    nil))
+                                                  nil))
+                                                nil))
+                                              nil))
+                                            nil))
+                                          nil))
+                                        nil))
+                                      nil))
+                                    nil))
+                                  nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil)
+                     ("2" (use "channels_match")
+                      (("2" (hide 2)
+                        (("2" (use "recv_prop")
+                          (("2" (assert)
+                            (("2" (skosimp)
+                              (("2"
+                                (inst?)
+                                (("2" (assert) nil nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil)
+             ("2" (lemma "comp_phase")
+              (("2" (inst - "r!1" "r!1+1") (("2" (assert) nil nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   unfinished
+   ((constraint1 formula-decl nil time_triggered_system nil)
+    (in_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (mess nonempty-type-decl nil time_triggered_system nil)
+    (epsilon_ax formula-decl nil epsilons nil)
+    (pred type-eq-decl nil defined_types nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (in_comm_phase const-decl "bool" time_triggered_system nil)
+    (recv const-decl "bool" time_triggered_system nil)
+    (channels_match formula-decl nil time_triggered_system nil)
+    (recv_prop formula-decl nil time_triggered_system nil)
+    (comm_phase2 formula-decl nil time_triggered_system nil)
+    (- const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (<= const-decl "bool" reals nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (state nonempty-type-decl nil time_triggered_system nil)
+    (nonempty_pred type-eq-decl nil orders nil)
+    (init_state const-decl "nonempty_pred[state]" time_triggered_system
+     nil)
+    (global_init type-eq-decl nil time_triggered_system nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (arrival_prop formula-decl nil time_triggered_system nil)
+    (< const-decl "bool" reals nil)
+    (comp_phase formula-decl nil time_triggered_system nil)
+    (epsilon const-decl "T" epsilons nil)
+    (out_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (max_delay formula-decl nil time_triggered_system nil)
+    (number nonempty-type-decl nil numbers nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (clocktime type-eq-decl nil time_triggered_system nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (>= const-decl "bool" reals nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (sched const-decl "clocktime" time_triggered_system nil) nil
+    (P const-decl "clocktime" time_triggered_system nil)
+    (proc nonempty-type-decl nil time_triggered_system nil)
+    (ttin_ax formula-decl nil time_triggered_system nil))
+   2971 2530 t nil)
+  (ttin_prop-1 nil 3320889218 3321367581
+   ("" (skosimp*)
+    (("" (beta *)
+      (("" (use "ttin_ax")
+        (("" (use "constraint1")
+          (("" (ground)
+            (("1" (inst?)
+              (("1" (replace -1 :hide? t)
+                (("1" (use "epsilon_ax[mess]")
+                  (("1" (ground)
+                    (("1" (skosimp)
+                      (("1" (use "max_delay2")
+                        (("1" (skosimp)
+                          (("1" (assert)
+                            (("1" (use "comm_phase2")
+                              (("1"
+                                (split)
+                                (("1"
+                                  (assert)
+                                  (("1"
+                                    (skosimp)
+                                    (("1"
+                                      (replace -2)
+                                      (("1"
+                                        (case-replace "r!1=r!2")
+                                        (("1" (assert) nil nil)
+                                         ("2"
+                                          (hide -2 -3 -5 -6 -7 -8 -9 2)
+                                          (("2"
+                                            (lemma "arrival_prop")
+                                            (("2"
+                                              (inst?)
+                                              (("2"
+                                                (inst -1 "d!1" "p!1")
+                                                (("2"
+                                                  (replace
+
+                                                   -2
+                                                   :hide?
+
+                                                   t
+                                                   :dir
+                                                   rl)
+                                                  (("2"
+                                                    (expand
+                                                     "in_comm_phase")
+                                                    (("2"
+                                                      (flatten)
+                                                      (("2"
+                                                        (case
+                                                         "r!2<r!1")
+                                                        (("1"
+                                                          (use
+                                                           "comp_phase")
+                                                          (("1"
+                                                            (assert)
+                                                            nil
+                                                            nil))
+                                                          nil)
+                                                         ("2"
+                                                          (case
+                                                           "r!1<r!2")
+                                                          (("1"
+                                                            (use
+                                                             "comp_phase")
+                                                            (("1"
+                                                              (assert)
+                                                              nil
+                                                              nil))
+                                                            nil)
+                                                           ("2"
+                                                            (assert)
+                                                            nil
+                                                            nil))
+                                                          nil))
+                                                        nil))
+                                                      nil))
+                                                    nil))
+                                                  nil))
+                                                nil))
+                                              nil))
+                                            nil))
+                                          nil))
+                                        nil))
+                                      nil))
+                                    nil))
+                                  nil)
+                                 ("2" (propax) nil nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil)
+                     ("2" (hide 2)
+                      (("2" (use "recv_prop")
+                        (("2" (assert)
+                          (("2" (skosimp)
+                            (("2" (inst?) (("2" (assert) nil nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil)
+             ("2" (lemma "comp_phase")
+              (("2" (inst - "r!1" "r!1+1") (("2" (assert) nil nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   unfinished
+   ((constraint1 formula-decl nil time_triggered_system nil)
+    (in_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (mess nonempty-type-decl nil time_triggered_system nil)
+    (epsilon_ax formula-decl nil epsilons nil)
+    (pred type-eq-decl nil defined_types nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (in_comm_phase const-decl "bool" time_triggered_system nil)
+    (recv const-decl "bool" time_triggered_system nil)
+    (recv_prop formula-decl nil time_triggered_system nil)
+    (comm_phase2 formula-decl nil time_triggered_system nil)
+    (out_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (<= const-decl "bool" reals nil)
+    (- const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (state nonempty-type-decl nil time_triggered_system nil)
+    (global_init type-eq-decl nil time_triggered_system nil)
+    (comp_phase formula-decl nil time_triggered_system nil)
+    (< const-decl "bool" reals nil)
+    (arrival_prop formula-decl nil time_triggered_system nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (epsilon const-decl "T" epsilons nil)
+    (number nonempty-type-decl nil numbers nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (clocktime type-eq-decl nil time_triggered_system nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (>= const-decl "bool" reals nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (sched const-decl "clocktime" time_triggered_system nil) nil
+    (P const-decl "clocktime" time_triggered_system nil)
+    (proc nonempty-type-decl nil time_triggered_system nil)
+    (ttin_ax formula-decl nil time_triggered_system nil))
+   2047 1430 t nil))
+ (ttss_start_TCC1 0
+  (ttss_start_TCC1-1 nil 3321372505 3328165000
+   ("" (subtype-tcc) nil nil) proved-complete
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (round type-eq-decl nil time_triggered_system nil))
+   219 210 nil nil))
+ (Main_Lemma 0
+  (Main_Lemma-1 nil 3320889218 3328166263
+   ("" (induct "r")
+    (("1" (skosimp)
+      (("1" (expand "run") (("1" (rewrite "ttss_start") nil nil)) nil))
+      nil)
+     ("2" (skosimp*)
+      (("2" (inst?)
+        (("2" (expand "run" +)
+          (("2" (rewrite "ttss_start" +)
+            (("2" (lemma "ttss_comm")
+              (("2" (inst? - :where +)
+                (("2" (inst?)
+                  (("2" (assert)
+                    (("2" (split)
+                      (("1" (replace -1 :hide? t)
+                        (("1" (use "constraint1")
+                          (("1" (flatten)
+                            (("1" (replace -4)
+                              (("1"
+                                (case-replace
+                                 "ttin(p!1)(sched(j!1) + P(j!1))=(LAMBDA (q: (in_nbrs(p!1))):
+                               msg(q)(run(ginit!1)(j!1)(q), p!1))")
+                                (("1"
+                                  (hide 2)
+                                  (("1"
+                                    (apply-extensionality :hide? t)
+                                    (("1"
+                                      (use "ttin_prop")
+                                      (("1"
+                                        (reveal -7)
+                                        (("1"
+                                          (inst - "ginit!1" "x!1")
+                                          (("1" (assert) nil nil))
+                                          nil))
+                                        nil))
+                                      nil)
+                                     ("2"
+                                      (skosimp)
+                                      (("2"
+                                        (use "channels_match")
+                                        (("2" (assert) nil nil))
+                                        nil))
+                                      nil))
+                                    nil))
+                                  nil)
+                                 ("2"
+                                  (skosimp)
+                                  (("2"
+                                    (use "channels_match")
+                                    (("2" (assert) nil nil))
+                                    nil))
+                                  nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil)
+                       ("2" (use "constraint1")
+                        (("2" (flatten) (("2" (assert) nil nil)) nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((ttss_comm formula-decl nil time_triggered_system nil)
+    (constraint1 formula-decl nil time_triggered_system nil)
+    (channels_match formula-decl nil time_triggered_system nil)
+    (ttin_prop formula-decl nil time_triggered_system nil)
+    (p!1 skolem-const-decl "proc" time_triggered_system nil)
+    (msg const-decl "[state, (out_nbrs(p)) -> mess]"
+     time_triggered_system nil)
+    (out_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (ttin const-decl "mess" time_triggered_system nil)
+    (mess nonempty-type-decl nil time_triggered_system nil)
+    (in_nbrs const-decl "[proc -> setof[proc]]" time_triggered_system
+     nil)
+    (setof type-eq-decl nil defined_types nil)
+    (P const-decl "clocktime" time_triggered_system nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (ttss_start formula-decl nil time_triggered_system nil)
+    (nat_induction formula-decl nil naturalnumbers nil)
+    (run def-decl "global_state" time_triggered_system nil)
+    (global_state type-eq-decl nil time_triggered_system nil)
+    (sched const-decl "clocktime" time_triggered_system nil)
+    (ttss const-decl "state" time_triggered_system nil)
+    (clocktime type-eq-decl nil time_triggered_system nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (global_init type-eq-decl nil time_triggered_system nil)
+    (init_state const-decl "nonempty_pred[state]" time_triggered_system
+     nil)
+    (nonempty_pred type-eq-decl nil orders nil)
+    (state nonempty-type-decl nil time_triggered_system nil)
+    (proc nonempty-type-decl nil time_triggered_system nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (pred type-eq-decl nil defined_types nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (>= const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil))
+   141177 36090 t nil))
+ (gi_TCC1 0
+  (gi_TCC1-1 nil 3321372505 3328165003
+   ("" (use "epsilon_ax[state]")
+    (("" (inst - "init_state")
+      (("" (split)
+        (("1" (inst + "LAMBDA (p: proc): epsilon(init_state)") nil nil)
+         ("2" (typepred! "init_state") (("2" (propax) nil nil)) nil))
+        nil))
+      nil))
+    nil)
+   proved-complete
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (pred type-eq-decl nil defined_types nil)
+    (nonempty_pred type-eq-decl nil orders nil)
+    (init_state const-decl "nonempty_pred[state]" time_triggered_system
+     nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (proc nonempty-type-decl nil time_triggered_system nil)
+    (global_init type-eq-decl nil time_triggered_system nil)
+    (epsilon const-decl "T" epsilons nil)
+    (state nonempty-type-decl nil time_triggered_system nil)
+    (epsilon_ax formula-decl nil epsilons nil))
+   94 90 t nil))
+ (Theorem_1 0
+  (Theorem_1-1 nil 3320889218 3328166679
+   ("" (skosimp)
+    (("" (apply-extensionality :hide? t)
+      (("" (grind)
+        (("" (lemma "gs_ax")
+          (("" (inst?)
+            (("" (skosimp*)
+              (("" (inst -1 "x!1")
+                (("" (use "Main_Lemma")
+                  (("" (lemma "ttss_comm")
+                    (("" (inst? - :where +)
+                      (("" (inst?)
+                        (("" (assert)
+                          (("" (lemma "clock_sync")
+                            (("" (inst -1 "x!1" "p!1" "gs(r!1)")
+                              ((""
+                                (expand "abs")
+                                ((""
+                                  (use "constraint3")
+                                  ((""
+                                    (use "rho_prop2")
+                                    (("1"
+                                      (case "D(r!1) > 0")
+                                      (("1" (assert) nil nil)
+                                       ("2"
+                                        (use "constraint1")
+                                        (("2" (assert) nil nil))
+                                        nil))
+                                      nil)
+                                     ("2" (assert) nil nil))
+                                    nil))
+                                  nil))
+                                nil))
+                              nil))
+                            nil))
+                          nil))
+                        nil))
+                      nil))
+                    nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((proc nonempty-type-decl nil time_triggered_system nil)
+    (state nonempty-type-decl nil time_triggered_system nil)
+    (gu const-decl "global_state" time_triggered_system nil)
+    (global_state type-eq-decl nil time_triggered_system nil)
+    (gs const-decl "realtime" time_triggered_system nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (>= const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (gt const-decl "state" time_triggered_system nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (gs_ax formula-decl nil time_triggered_system nil)
+    (Main_Lemma formula-decl nil time_triggered_system nil)
+    (pred type-eq-decl nil defined_types nil)
+    (nonempty_pred type-eq-decl nil orders nil)
+    (init_state const-decl "nonempty_pred[state]" time_triggered_system
+     nil)
+    (global_init type-eq-decl nil time_triggered_system nil)
+    (gi const-decl "global_init" time_triggered_system nil)
+    (C const-decl "clocktime" time_triggered_system nil)
+    (clocktime type-eq-decl nil time_triggered_system nil)
+    (constraint3 formula-decl nil time_triggered_system nil)
+    (D const-decl "clocktime" time_triggered_system nil)
+    (> const-decl "bool" reals nil)
+    (constraint1 formula-decl nil time_triggered_system nil)
+    (<= const-decl "bool" reals nil)
+    (delta const-decl "{x: realtime | 0 <= x}" time_triggered_system
+     nil)
+    (delay type-eq-decl nil time_triggered_system nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (rho_prop2 formula-decl nil time_triggered_system nil)
+    (abs const-decl "{n: nonneg_real | n >= m}" real_defs nil)
+    (clock_sync formula-decl nil time_triggered_system nil)
+    (ttss_comm formula-decl nil time_triggered_system nil))
+   398023 29990 t nil)))
+
+
+$$$time_triggered_imp.pvs
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Lee Pike
+% leepike @ galois.com
+%
+% Modified PVS theoris of John Rushby, to support my IEEE TSE comment.
+% 
+% PVS 3.2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+time_triggered_imp: THEORY
+BEGIN
+
+  IMPORTING time_triggered_system 
+    {{proc:= nat,
+      mess:= nat,
+      state:= nat,
+      init_state(n: nat):= true,
+      null:= 0,
+      in_nbrs(p: nat):= {n: nat | true},
+      out_nbrs(q: nat):= {n: nat | true},
+      msg(p: nat)(s: nat, ins: {n: nat | true}):= 1,
+      trans(p: nat)(s: nat, nbs: [{n: nat | true} -> nat]):= s,
+
+      C(p: nat, t: real):= floor(t),      
+      rho:= 1/2,
+      Sigma:= 2,
+      sched(r: nat):= 20*r,
+      D(r: nat):= 5,
+      P(r: nat):= 15,
+      sendtime(p: nat, r: nat):= floor(20*r+5),
+      ttss(gs: [nat -> nat])(p: nat)(T: int):= gs(p),
+      sent(p: nat, q: nat, m: nat, t: real):= (EXISTS (n: nat): t=20*n+5) AND m=1,
+      recv(q: nat, p: nat, m: nat, t: real):= (EXISTS (n: nat): t =20*n+5) 
+                                                 AND m=1,
+      delta:=1,
+      ttin(p: nat)(T: int)(q: nat):= 1,
+      gs(r: nat):= 20*r,
+      gi(p: nat):= 1}}
+
+END time_triggered_imp
+
+
+$$$time_triggered_imp.prf
+(time_triggered_imp
+ (IMP_time_triggered_system_TCC1 0
+  (IMP_time_triggered_system_TCC1-1 nil 3325428538 3325428543
+   ("" (subtype-tcc) nil nil) proved nil 27 30 nil nil))
+ (IMP_time_triggered_system_channels_match_TCC1 0
+  (IMP_time_triggered_system_channels_match_TCC1-1 nil 3321370287
+   3325428543 ("" (tcc)) proved nil 27 30 nil nil))
+ (IMP_time_triggered_system_drift_rate_TCC1 0
+  (IMP_time_triggered_system_drift_rate_TCC1-1 nil 3320930430
+   3325428544 ("" (tcc)) proved
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil) (< const-decl "bool" reals nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (/= const-decl "boolean" notequal nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (realtime type-eq-decl nil time_triggered_system nil))
+   868 620 t shostak))
+ (IMP_time_triggered_system_clock_sync_TCC1 0
+  (IMP_time_triggered_system_clock_sync_TCC1-1 nil 3320930432
+   3325428544 ("" (tcc)) proved
+   ((abs const-decl "{n: nonneg_real | n >= m}" real_defs nil)) 24 20
+   nil shostak))
+ (IMP_time_triggered_system_monotone_sched_TCC1 0
+  (IMP_time_triggered_system_monotone_sched_TCC1-1 nil 3320930432
+   3325428544 ("" (tcc)) proved
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil) (< const-decl "bool" reals nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (/= const-decl "boolean" notequal nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (round type-eq-decl nil time_triggered_system nil))
+   377 290 nil shostak))
+ (IMP_time_triggered_system_constraint1_TCC1 0
+  (IMP_time_triggered_system_constraint1_TCC1-1 nil 3320930433
+   3325428544
+   ("" (skosimp*) (("" (expand "dur") (("" (propax) nil nil)) nil))
+    nil)
+   proved ((dur const-decl "clockoffset" time_triggered_system nil)) 35
+   30 t shostak))
+ (IMP_time_triggered_system_constraint2_TCC1 0
+  (IMP_time_triggered_system_constraint2_TCC1-1 nil 3320930433
+   3325428544 ("" (tcc)) proved nil 19 20 nil shostak))
+ (IMP_time_triggered_system_sendtime_ax_TCC1 0
+  (IMP_time_triggered_system_sendtime_ax_TCC1-1 nil 3320930433
+   3325428545 ("" (tcc)) proved
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil) (< const-decl "bool" reals nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (/= const-decl "boolean" notequal nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (round type-eq-decl nil time_triggered_system nil))
+   491 380 nil shostak))
+ (IMP_time_triggered_system_comm_phase1_TCC1 0
+  (IMP_time_triggered_system_comm_phase1_TCC1-1 nil 3320930434
+   3325428545 ("" (tcc)) proved
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil) (< const-decl "bool" reals nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (/= const-decl "boolean" notequal nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (round type-eq-decl nil time_triggered_system nil))
+   627 480 nil shostak))
+ (IMP_time_triggered_system_comm_phase2_TCC1 0
+  (IMP_time_triggered_system_comm_phase2_TCC1-1 nil 3321370287
+   3325428546
+   ("" (skosimp*)
+    (("" (inst?)
+      (("" (typepred! "floor(20 * n!1 + 5)") (("" (assert) nil nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((number nonempty-type-decl nil numbers nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (>= const-decl "bool" reals nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil) (< const-decl "bool" reals nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (/= const-decl "boolean" notequal nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (NOT const-decl "[bool -> bool]" booleans nil))
+   595 470 t shostak))
+ (IMP_time_triggered_system_max_delay_TCC1 0
+  (IMP_time_triggered_system_max_delay_TCC1-1 nil 3321370287 3325428631
+   ("" (skosimp*)
+    (("" (split)
+      (("1" (inst + "0") (("1" (flatten) (("1" (assert) nil nil)) nil))
+        nil)
+       ("2" (inst + "0") (("2" (flatten) (("2" (assert) nil nil)) nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((realtime type-eq-decl nil time_triggered_system nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/= const-decl "boolean" notequal nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (< const-decl "bool" reals nil) (<= const-decl "bool" reals nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (>= const-decl "bool" reals nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number nonempty-type-decl nil numbers nil))
+   41779 3820 t shostak))
+ (IMP_time_triggered_system_constraint3_TCC1 0
+  (IMP_time_triggered_system_constraint3_TCC1-1 nil 3321370287
+   3325428547 ("" (tcc)) proved
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil) (< const-decl "bool" reals nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (/= const-decl "boolean" notequal nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (round type-eq-decl nil time_triggered_system nil))
+   315 270 nil nil))
+ (IMP_time_triggered_system_ttin_ax_TCC1 0
+  (IMP_time_triggered_system_ttin_ax_TCC1-1 nil 3321370287 3325428548
+   ("" (skosimp*)
+    (("" (use "epsilon_ax[nat]")
+      (("" (assert)
+        (("" (inst + "1")
+          (("" (hide 2)
+            (("" (expand "in_comm_phase")
+              (("" (inst + "20 * r!1 + 5")
+                (("" (split)
+                  (("1" (assert) nil nil) ("2" (assert) nil nil)
+                   ("3" (inst?) (("3" (assert) nil nil)) nil))
+                  nil))
+                nil))
+              nil))
+            nil))
+          nil))
+        nil))
+      nil))
+    nil)
+   proved
+   ((epsilon_ax formula-decl nil epsilons nil)
+    (number nonempty-type-decl nil numbers nil)
+    (boolean nonempty-type-decl nil booleans nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (>= const-decl "bool" reals nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (in_comm_phase const-decl "bool" time_triggered_system nil)
+    (round type-eq-decl nil time_triggered_system nil)
+    (realtime type-eq-decl nil time_triggered_system nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/= const-decl "boolean" notequal nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (< const-decl "bool" reals nil) (<= const-decl "bool" reals nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (pred type-eq-decl nil defined_types nil))
+   845 690 t shostak))
+ (IMP_time_triggered_system_ttss_start_TCC1 0
+  (IMP_time_triggered_system_ttss_start_TCC1-1 nil 3321370287
+   3325428548 ("" (mapped-axiom-tcc) nil nil) proved nil 26 20 nil
+   shostak))
+ (IMP_time_triggered_system_ttss_comm_TCC1 0
+  (IMP_time_triggered_system_ttss_comm_TCC1-1 nil 3321370287 3325428548
+   ("" (tcc)) proved nil 59 10 nil nil))
+ (IMP_time_triggered_system_gs_ax_TCC1 0
+  (IMP_time_triggered_system_gs_ax_TCC1-1 nil 3321370287 3325428548
+   ("" (tcc)) proved
+   ((boolean nonempty-type-decl nil booleans nil)
+    (bool nonempty-type-eq-decl nil booleans nil)
+    (NOT const-decl "[bool -> bool]" booleans nil)
+    (number nonempty-type-decl nil numbers nil)
+    (number_field_pred const-decl "[number -> boolean]" number_fields
+     nil)
+    (number_field nonempty-type-from-decl nil number_fields nil)
+    (real_pred const-decl "[number_field -> boolean]" reals nil)
+    (real nonempty-type-from-decl nil reals nil)
+    (>= const-decl "bool" reals nil)
+    (rational_pred const-decl "[real -> boolean]" rationals nil)
+    (rational nonempty-type-from-decl nil rationals nil)
+    (integer_pred const-decl "[rational -> boolean]" integers nil)
+    (int nonempty-type-eq-decl nil integers nil)
+    (nat nonempty-type-eq-decl nil naturalnumbers nil)
+    (TRUE const-decl "bool" booleans nil)
+    (integer nonempty-type-from-decl nil integers nil)
+    (AND const-decl "[bool, bool -> bool]" booleans nil)
+    (<= const-decl "bool" reals nil) (< const-decl "bool" reals nil)
+    (numfield nonempty-type-eq-decl nil number_fields nil)
+    (+ const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (floor const-decl "{i | i <= x & x < i + 1}" floor_ceil nil)
+    (/= const-decl "boolean" notequal nil)
+    (nznum nonempty-type-eq-decl nil number_fields nil)
+    (/ const-decl "[numfield, nznum -> numfield]" number_fields nil)
+    (* const-decl "[numfield, numfield -> numfield]" number_fields nil)
+    (= const-decl "[T, T -> boolean]" equalities nil)
+    (round type-eq-decl nil time_triggered_system nil))
+   413 320 nil nil)))
+

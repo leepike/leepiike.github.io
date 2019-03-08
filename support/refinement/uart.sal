@@ -1,0 +1,256 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown |@| cs.indiana.edu>         %%
+%% Lee Pike, Galois Connections, Inc. <leepike |@| galois.com>              %%
+%%                                                                          %%
+%% SAL 2.4 <http://fm.csl.sri.com/>                                         %%
+%%                                                                          %%
+%% Fully parameterized specification and refinement of an 8N1 decoder.      %%
+%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html  %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+uart: CONTEXT = 
+
+BEGIN
+
+TIME : TYPE = REAL;
+
+TPERIOD : { x : TIME | 0 < x};
+TSETTLE : { x : TIME | 0 <= x AND x < TPERIOD};
+
+TSTABLE : TIME = TPERIOD - TSETTLE;
+
+RSCANMIN : { x : TIME | 0 < x};
+RSCANMAX : { x : TIME | RSCANMIN <= x AND x < TSTABLE};
+
+RSAMPMIN : { x : TIME | TPERIOD + TSETTLE < x};
+RSAMPMAX : { x : TIME | RSAMPMIN <= x AND
+		                  x < 2 * TPERIOD - TSETTLE - RSCANMAX};
+
+RPERIODMIN : { x : TIME | 9 * TPERIOD + TSETTLE < RSAMPMIN + 8 * x};
+RPERIODMAX : { x : TIME | RPERIODMIN <= x AND
+     			TSETTLE + RSCANMAX + RSAMPMAX + 8 * x < 10 * TPERIOD};
+
+time(t1 : TIME, t2: TIME): TIME = 
+  IF t1 <= t2 THEN t1 ELSE t2 ENDIF;
+
+STATE : TYPE = [0..9];
+
+%---------------------
+%  
+% Transmitter
+%
+%---------------------
+
+  tclock_rt : MODULE =
+    BEGIN
+       INPUT  rclk   : TIME
+       OUTPUT tclk   : TIME
+  
+    INITIALIZATION
+
+       tclk  IN {x : TIME | 0 <= x AND x <= TSTABLE};
+
+    TRANSITION
+           [
+             tclk = time(tclk, rclk) -->
+                     tclk' = tclk + TPERIOD;
+           ]
+     END;
+
+  tenv : MODULE = 
+     BEGIN
+       INPUT   tready : BOOLEAN
+       OUTPUT  tbit   : BOOLEAN
+
+       TRANSITION
+       [
+           tready --> tbit' IN {TRUE, FALSE}
+       []  ELSE   --> 
+       ]
+     END;
+
+   tenc : MODULE =
+     BEGIN
+       OUTPUT  tdata  : BOOLEAN
+       OUTPUT  tstate : STATE
+       OUTPUT  tready : BOOLEAN
+       INPUT   tbit   : BOOLEAN
+
+       INITIALIZATION
+
+         tstate = 9;
+
+       DEFINITION
+
+         tready =  tstate /=  8;
+         tdata  =  (tstate = 9) OR tbit;
+
+       TRANSITION
+       [
+          tstate = 9  --> tstate' = IF tbit' THEN 9 ELSE 0 ENDIF;
+       [] tstate < 9  --> tstate' = tstate + 1;
+       ]
+  END;
+
+  tx_rt : MODULE = tclock_rt || tenc || tenv;
+
+  timeout (min : TIME, max : TIME) : [TIME -> BOOLEAN]  = 
+                  { x : TIME | min <= x AND x <=  max};
+
+  rclock_rt : MODULE  =
+          BEGIN
+           INPUT tclk   : TIME
+           INPUT rstate : STATE
+           OUTPUT rclk  : TIME
+
+         INITIALIZATION
+
+           rclk IN { x : TIME | 0 <= x AND x < RSCANMAX };   
+ 
+         TRANSITION
+         [
+            rclk = time(rclk, tclk) --> 
+                  rclk' IN IF (rstate' = 9) THEN
+  	                     timeout(rclk + RSCANMIN, rclk + RSCANMAX)
+                           ELSIF (rstate' = 0) THEN
+                             timeout(rclk + RSAMPMIN, rclk + RSAMPMAX)
+                           ELSE
+                             timeout(rclk + RPERIODMIN, rclk + RPERIODMAX)
+                           ENDIF;
+         ]
+  END;
+
+
+  rdec_rt : MODULE =
+     BEGIN
+       OUTPUT rstate : STATE
+       OUTPUT rbit   : BOOLEAN
+
+      INITIALIZATION
+  
+       rbit  = TRUE;
+       rstate = 9;
+
+      TRANSITION
+         [
+            rstate  = 9  -->  rbit' = TRUE;
+         [] rstate  = 9  -->  rbit' = FALSE;
+                              rstate' = 0;
+         [] rstate /= 9  -->  rbit' IN {FALSE, TRUE};
+			                        rstate' = rstate + 1;
+         ]
+       END;
+
+  constraint : MODULE =
+         BEGIN
+            INPUT  tclk     : TIME
+            INPUT  rclk     : TIME
+            INPUT  rbit     : BOOLEAN
+            INPUT  tdata    : BOOLEAN
+            LOCAL  stable   : BOOLEAN
+            LOCAL  changing : BOOLEAN
+
+         DEFINITION
+
+             stable = NOT changing OR tclk - rclk < TSTABLE;
+
+	 INITIALIZATION
+
+             changing = FALSE	  
+     
+         TRANSITION
+         [
+            rclk' /= rclk AND (stable => rbit' = tdata) -->
+         [] tclk' /= tclk --> changing' = (tdata' /= tdata)
+         ]
+        END;
+
+     rx_rt : MODULE = rdec_rt || rclock_rt;
+     system_rt : MODULE = (rx_rt [] tx_rt) || constraint;
+
+
+RMAX : TIME = RSAMPMAX + RSCANMAX;
+
+disjunct_invar(n: STATE, tstate: STATE, rstate: STATE, 
+               tdata: BOOLEAN, rbit: BOOLEAN, rclk: TIME, 
+               tclk: TIME, stable: BOOLEAN): BOOLEAN =
+         ((tstate = n + 1) AND 
+          (rstate = n) AND    
+          (rclk - tclk <= 
+             n * RPERIODMAX - (n+1) * TPERIOD + RMAX - TSTABLE) AND
+          (rclk - tclk >= 
+             n * RPERIODMIN - (n+1) * TPERIOD + RSAMPMIN - TPERIOD))
+      OR
+          (
+           (tstate = n) AND 
+           (rstate = n) AND    
+           stable AND
+           (tdata = rbit) AND
+           (rclk - tclk <= 
+                n * RPERIODMAX - n * TPERIOD + RMAX - TSTABLE) AND
+           (rclk - tclk >= 
+                n * RPERIODMIN - (n+1) * TPERIOD + RSAMPMIN));
+
+rec_states(n: STATE, tstate: STATE, rstate: STATE, 
+           tdata: BOOLEAN, rbit: BOOLEAN, rclk: TIME, 
+            tclk: TIME, stable: BOOLEAN): BOOLEAN =
+          IF n = 0 THEN 
+             disjunct_invar(n, tstate, rstate, tdata, rbit, rclk, tclk, stable)
+          ELSE     
+            disjunct_invar(n, tstate, rstate, tdata, rbit, rclk, tclk, stable)
+         OR rec_states(n - 1, tstate, rstate, tdata, rbit, rclk, tclk, stable)
+          ENDIF;
+
+% sal-inf-bmc -d 1 -i uart.sal l1
+% sal-inf-bmc -d 1 -i uart.sal l2
+
+   l1 : LEMMA system_rt |- G(tclk <= (rclk + TPERIOD) OR stable);
+
+   l2 : LEMMA system_rt |- G(rclk <= tclk + RSAMPMAX OR 
+                          rclk <= tclk + RSCANMAX OR 
+                          rclk <= tclk + RPERIODMAX);
+
+%  sal-inf-bmc -l l1 -l l2 -d 2 -i  uart.sal t0
+
+  t0 : THEOREM system_rt |- G( 
+      % idle
+       ((rstate =  9) AND  
+        (tstate = 9) AND 
+        (tdata AND rbit) AND
+        stable AND
+        (rclk - tclk <= RSCANMAX))
+   OR % start bit sent, not detected
+       ((rstate = 9) AND 
+        (tstate = 0) AND 
+        (NOT tdata AND rbit) AND 
+        (rclk - tclk <= RSCANMAX - TSTABLE))
+   OR % --- unwind all the other cases
+      rec_states(8, tstate, rstate, tdata, rbit, rclk, tclk, stable));
+
+% sal-inf-bmc -d 1 -i -l t0 uart.sal const_thm
+
+const_thm : THEOREM system_rt |- G((tstate /= 0 OR rstate /= 9) => stable);
+
+% sal-inf-bmc -d 1 -i -l t0 uart.sal tclock_thm
+% sal-inf-bmc -d 1 -i -l t0 uart.sal rclock_thm
+
+  tclock_thm : THEOREM system_rt |- G(tclk = time(tclk,rclk) => tstate = rstate);
+
+  rclock_thm : THEOREM system_rt |- G(rclk = time(rclk,tclk) =>
+                                   (rstate /= tstate OR
+                    				   (rstate = 9 AND tstate = 9)));
+
+% sal-inf-bmc -d 2 -i -l t0 -l const_thm uart.sal rdec_thm1
+% sal-inf-bmc -d 2 -i -l t0 -l const_thm uart.sal rdec_thm2
+% sal-inf-bmc -d 2 -i -l t0 -l const_thm uart.sal rdec_thm3
+
+  rdec_thm1 : THEOREM system_rt |- G(rstate = 9 => rbit);
+
+  rdec_thm2 : THEOREM system_rt |- G(rstate = 9 AND X(NOT rbit)
+                                  AND X(rstate = 0) => NOT tdata);
+
+  rdec_thm3 : THEOREM system_rt |- G(FORALL (i : [0..8]) :
+                    rstate = i AND X(rstate = i+1) =>  X(rbit) = tdata);
+
+END
+

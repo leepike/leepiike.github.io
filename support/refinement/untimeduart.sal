@@ -1,0 +1,132 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown |@| cs.indiana.edu>         %%
+%% Lee Pike, Galois Connections, Inc. <leepike |@| galois.com>              %%
+%%                                                                          %%
+%% SAL 2.4 <http://fm.csl.sri.com/>                                         %%
+%%                                                                          %%
+%% Specification and verification of an untimed 8N1 decoder.                %%
+%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html> %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+untimeduart: CONTEXT = 
+
+BEGIN
+
+STATE : TYPE = [0..9];
+
+%---------------------
+%  
+% Transmitter
+%
+%---------------------
+
+  tclock : MODULE =
+    BEGIN
+       INPUT rstate : STATE
+       INPUT tstate : STATE
+
+    TRANSITION
+           [
+		tstate = rstate --> 
+           ]
+     END;
+
+  tenv : MODULE = 
+     BEGIN
+       INPUT   tready : BOOLEAN
+       OUTPUT  tbit   : BOOLEAN
+
+       TRANSITION
+       [
+           tready --> tbit' IN {TRUE, FALSE}
+       []  ELSE   --> 
+       ]
+     END;
+
+   tenc : MODULE =
+     BEGIN
+       OUTPUT  tdata  : BOOLEAN
+       OUTPUT  tstate : STATE
+       OUTPUT  tready : BOOLEAN
+       INPUT   tbit   : BOOLEAN
+
+       INITIALIZATION
+
+         tstate = 9;
+
+       DEFINITION
+
+         tready =  tstate /=  8;
+         tdata  =  (tstate = 9) OR tbit;
+
+       TRANSITION
+       [
+          tstate = 9  --> tstate' = IF tbit' THEN 9 ELSE 0 ENDIF;
+       [] tstate < 9  --> tstate' = tstate + 1;
+       ]
+  END;
+
+  tx : MODULE = tclock || tenv || tenc;
+
+  rclock : MODULE  =
+         BEGIN
+           INPUT tstate : STATE
+           INPUT rstate : STATE
+
+         TRANSITION
+         [
+		rstate /= tstate OR tstate = 9 -->
+         ]
+  END;
+
+  rdec : MODULE =
+     BEGIN
+       INPUT  tdata  : BOOLEAN
+       OUTPUT rstate : STATE
+       OUTPUT rbit   : BOOLEAN
+
+      INITIALIZATION
+  
+       rbit  = TRUE;
+       rstate = 9;
+
+      TRANSITION
+         [
+            rstate  = 9                -->  
+         [] rstate  = 9  AND NOT tdata -->  rbit' = FALSE;
+  			                                    rstate' = 0;
+
+         [] rstate /= 9                -->  rbit' = tdata;
+   		                                      rstate' = rstate + 1;
+         ]
+       END;
+
+rx : MODULE = rdec || rclock;
+system : MODULE = rx [] tx; 
+
+% sal-smc untimeduart.sal StateThm1
+StateThm1 :  THEOREM system |- G(rstate = tstate OR 
+				((rstate + 1) MOD 10) = tstate);
+
+% sal-smc untimeduart.sal StateThm2
+StateThm2 :  THEOREM system |- G(FORALL (i : STATE) : 
+             (i = rstate AND i = tstate) => X((i = rstate AND (i + 1) MOD 10 = tstate)
+                                          OR (i = rstate AND i = tstate AND i = 9)));
+
+% sal-smc untimeduart.sal StateThm3
+StateThm3 :  THEOREM system |- G(FORALL (i : STATE) : 
+               (i = rstate AND (i + 1) MOD 10 = tstate) => 
+                   X(   ((i + 1) MOD 10 = rstate AND (i + 1) MOD 10 = tstate)
+                     OR (i = 9 AND i = rstate AND 0 = tstate)));
+
+
+% sal-smc untimeduart.sal Thm
+
+Thm :  THEOREM system |- G(tstate = rstate AND rstate /= 9 => rbit = tbit);
+
+% sal-smc untimeduart.sal Liveness
+
+Liveness: THEOREM system |- G(F(rstate /= 9) => 
+                              F(tstate = 9 AND rstate = 9));
+                                
+END

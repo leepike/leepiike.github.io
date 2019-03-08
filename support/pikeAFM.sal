@@ -1,0 +1,250 @@
+% Specs from the paper & talk for "Model Checking for the Practical Verificationist:
+% A User's Perspective on SAL."
+% Lee Pike, Galois, Inc. leepike %a%t% galois.com
+%
+% Appears in the proceedings of the Automated Formal Methods Workshop, 2007.  ACM Press.
+%
+
+pikeAFM : CONTEXT =
+
+BEGIN
+
+%%%%%%%%%%%%%%%
+% k-Induction %
+%%%%%%%%%%%%%%%
+inv : MODULE =
+BEGIN
+  LOCAL cnt : INTEGER
+  LOCAL b   : BOOLEAN
+  INITIALIZATION
+    cnt = 0;
+    b = TRUE
+  TRANSITION
+  [   b    --> b' = NOT b;
+               cnt' = cnt + 2;
+   []
+      ELSE --> b' = NOT b;
+               cnt' = cnt - 1;
+  ]
+END;
+
+% BEHAVIOR:
+% b   = TRUE, FALSE, TRUE, FALSE, TRUE, FALSE, TRUE, ...
+% cnt = 0,    2,     1,    3,     2,    4,     3,    ...
+
+% sal-inf-bmc -i -d 1 -ice pikeAFM.sal invClaim
+% sal-inf-bmc -i -d 2 -ice pikeAFM.sal invClaim
+invClaim : CLAIM inv |- G(cnt >= 0);
+
+
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DISJUNCTIVE INVARIANTS %
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+disj : MODULE =
+BEGIN
+  LOCAL cnt : INTEGER
+  LOCAL b   : BOOLEAN
+  INITIALIZATION
+    cnt = 0;
+    b = TRUE
+  TRANSITION
+  [   b    --> b' = NOT b;
+               cnt' = (-1 * cnt) - 1;
+   []
+      ELSE --> b' = NOT b;
+               cnt' = (-1 * cnt) + 1;
+  ]
+END;
+
+% BEHAVIOR:
+% b   = TRUE, FALSE, TRUE, FALSE, TRUE, FALSE, TRUE, ...
+% cnt = 0,    -1,    2,    -3,    4,    -5     6,    ...
+
+% sal-inf-bmc -i -d 1 pikeAFM.sal disjClaim1
+disjClaim1 : CLAIM disj |- G(b AND cnt >= 0);
+
+% sal-inf-bmc -i -d 1 pikeAFM.sal disjClaim2
+disjClaim2 : CLAIM disj |- G(   (b AND cnt >= 0)
+                             OR (NOT b AND cnt < 0));
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% HIGHER-ORDER FUNCTIONS %
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+timeout(min : REAL, max : REAL) : [REAL -> BOOLEAN] =
+  {x : REAL |     min <= x
+              AND x <= max
+  };
+
+% Uninterpreted predicates
+H(t : REAL) : BOOLEAN;
+I(t : REAL) : BOOLEAN;
+
+timed : MODULE =
+BEGIN
+  LOCAL t : REAL
+  TRANSITION
+  [   H(t) --> t' IN timeout(1, 2)
+   []
+      I(t) --> t' IN timeout(t + 4.5, 7)
+  ]
+END;
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% "PULLING" AND "PUSHING" TRANSITIONS %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% m, n, p, q are constants of type NODE.
+NODE : TYPE = {m,n,p,q};
+
+% A NODE x NODE matrix of booleans denoting whether there is a channel from
+% NODE n to NODE m.
+CHANS : TYPE = ARRAY NODE OF ARRAY NODE OF BOOLEAN;
+
+% The empty set of channels.
+emptyChans : CHANS = [[a : NODE][[b : NODE] FALSE]];
+
+% Update a set of channels with a new channel.
+newChan(a : NODE, b : NODE) : [CHANS -> CHANS] =
+  LAMBDA (chans : CHANS) : 
+    chans WITH [a][b] := TRUE;
+
+% Some predicates (we interpret them since sal-smc/sal-bmc do not currently
+% support uninterpreted constants).
+J(chans : CHANS) : BOOLEAN = chans = emptyChans;
+K(chans : CHANS) : BOOLEAN = chans[p][q] = TRUE;
+
+% State machine with the transitions embedded within.
+distSys1 : MODULE =
+BEGIN
+  LOCAL chans : CHANS
+  INITIALIZATION chans = emptyChans
+  TRANSITION
+  [   J(chans) --> chans' =  newChan(n, m)
+                            (newChan(p, q)  
+                            (chans));
+
+   [] K(chans) --> chans' = newChan(q, n)(chans);
+
+   [] ELSE     -->
+  ]
+END;
+
+% Some property to prove.
+uniDirChans(chans : CHANS) : BOOLEAN =
+  FORALL (a, b : NODE) : 
+    chans[a][b] => NOT chans[b][a];
+
+% sal-smc pikeAFM.sal uniDirThm1
+uniDirThm1 : THEOREM distSys1 |- G(uniDirChans(chans));
+
+% ------------------------------------------------------------------------------
+
+% Defining a predicate representing the of the state machine above..
+chanSet(chans : CHANS) : [CHANS -> BOOLEAN] =
+  {x : CHANS |     (J(chans) => x =  newChan(n, m)
+                                    (newChan(p, q)  
+                                    (chans)))
+               AND (K(chans) => x = newChan(q, n)(chans))
+               AND (   NOT J(chans) AND NOT K(chans) 
+                    => FORALL (a, b : NODE) : x[a][b] = chans[a][b])
+  };
+
+% Defining a state machine equivalent to distSys1 using the predicate.
+distSys2 : MODULE =
+BEGIN
+  LOCAL chans : CHANS
+  INITIALIZATION chans = emptyChans
+  TRANSITION
+  [ TRUE --> chans' IN chanSet(chans); ]
+END;
+
+% sal-smc pikeAFM.sal uniDirThm2
+uniDirThm2 : THEOREM distSys2 |- G(uniDirChans(chans));
+
+% ------------------------------------------------------------------------------
+
+% Defining a completely nondeterministic state machine.
+distSys3 : MODULE =
+BEGIN
+  LOCAL chans     : CHANS,
+        chansHist : CHANS
+  INITIALIZATION chans = emptyChans
+  TRANSITION
+  [ TRUE --> chans' IN {x : CHANS | TRUE};
+             chansHist' = chans
+  ]
+END;
+
+% sal-smc pikkeAFM.sal uniDirThm3
+% W(a, b) holds if a always holds or if a holds continuously until b holds,
+% at which point neither must hold.  W(a, FALSE) <=> G(a).
+uniDirThm3 : THEOREM distSys3 |- LET inv : BOOLEAN = chanSet(chansHist)(chans)
+                                 IN W( inv => uniDirChans(chans)
+                                     , NOT inv);
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Composition and k-Induction %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+N : NATURAL = 2;
+INDEX : TYPE = [1..N];
+
+% Intentionally deadlocked (so I don't have to worry about fairness in an
+% asynchronous composition).
+node[n: INDEX]: MODULE = 
+BEGIN
+  OUTPUT cnt : INTEGER
+  LOCAL  b   : BOOLEAN
+INITIALIZATION
+  cnt = 0;
+  b   = TRUE
+TRANSITION
+[   b AND cnt <= 2       --> cnt' = cnt + 2;
+                             b' = NOT b;
+ []
+    (NOT b) AND cnt <= 2 --> cnt' = cnt - 1;
+                             b' = NOT b
+]
+END;
+
+nodes : MODULE = 
+  WITH OUTPUT cnts : ARRAY INDEX OF INTEGER
+    ([] (n : INDEX) : RENAME cnt TO cnts[n]
+                      IN node[n]);
+
+% sal-inf-bmc -d -i x pikeAFM.sal nodesThm
+% where x is a function of N:
+% Synch: (N, x) = (2, 2), (3, 2), (4, 2), (5, 2) ...
+% Asynch: (N, x) = (2, 6), (3, 10), (4, 14), (5, 18) ...
+nodesThm : THEOREM nodes |- G(FORALL (n : INDEX) : cnts[n] >= 0);
+
+
+END
+

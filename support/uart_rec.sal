@@ -1,0 +1,320 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown @ cs.indiana.edu>           %%
+%% Lee Pike, Galois Connections, Inc. <leepike @ galois.com>                %%
+%% Copyright, 2005                                                          %%
+%%                                                                          %%
+%% SAL 2.3 (2.4 compatible)                                                 %%
+%%                                                                          %%
+%% Specification and verification of a 8N1 decoder.                         %%
+%%                                                                          %%
+%% A paper describing this specification, to be published in TACAS, 2006    %%
+%% is available from the authors.                                           %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+uart_rec: CONTEXT = 
+
+BEGIN
+
+TIME : TYPE = REAL;
+
+TPERIOD : TIME = 16;
+TSAMPLE : TIME = 23;
+
+TSETTLE : { x : TIME | 0 <= x AND x < TPERIOD };
+
+TSTABLE : TIME = TPERIOD - TSETTLE;
+
+ERROR : { x : TIME | 0 <= x AND
+                    (9*TPERIOD + TSETTLE < 8*TPERIOD*(1-x) + TSAMPLE*(1-x)) AND
+                    ((8*TPERIOD * (1+x) + TSAMPLE*(1+x) + (1+x) + TSETTLE) 
+                                     < 10*TPERIOD)};
+
+RPERIODMAX : TIME = TPERIOD * (1 + ERROR);
+RPERIODMIN : TIME = TPERIOD * (1 - ERROR);
+RSAMPMAX   : TIME = TSAMPLE  * (1 + ERROR);
+RSAMPMIN   : TIME = TSAMPLE  * (1 - ERROR);
+RSCANMAX   : TIME = 1 + ERROR;
+RSCANMIN   : TIME = 1 - ERROR;
+
+
+RSTATE_TYPE : TYPE = {x : [1..10] | x=1 OR x=2 OR x=3 OR x=4 OR x=5 OR 
+                                    x=6 OR x=7 OR x=8 OR x=9 OR x=10};
+TSTATE_TYPE : TYPE = {x : [0..9] | x=0 OR x=1 OR x=2 OR x=3 OR x=4 OR x=5 OR 
+                                   x=6 OR x=7 OR x=8 OR x=9};
+BIT_TYPE : TYPE = { x: [0..1] | x=0 OR x=1};
+
+
+%---------------------------------------------------------
+%  Clock module: makes time elapse up to the next timeout
+%---------------------------------------------------------
+
+  clock: MODULE = 
+    BEGIN
+      INPUT  rclk : TIME
+      INPUT  tclk : TIME
+      OUTPUT time : TIME
+
+    INITIALIZATION
+      time = 0
+
+    TRANSITION
+      [ 
+         time < rclk AND rclk <= tclk --> time' = rclk
+      [] time < tclk AND tclk <= rclk --> time' = tclk
+      ]
+    END;
+
+%---------------------
+%  
+% Transmitter
+%
+%---------------------
+
+  PHASE:  TYPE = { Stable, Settle };
+  WIRE:   TYPE = { Zero, One, ToZero, ToOne };
+
+  tclock : MODULE =
+    BEGIN
+       INPUT  time   : TIME
+       OUTPUT tclk   : TIME
+       OUTPUT phase  : PHASE
+  
+    INITIALIZATION
+
+       phase = Stable;
+       tclk  IN {x : TIME | 0 <= x AND x <= TSTABLE};
+
+    TRANSITION
+           [
+              time = tclk AND phase = Stable -->
+                     tclk' = time + TSETTLE;
+                     phase' = Settle;
+		     
+           [] time = tclk AND phase = Settle -->
+                     tclk' = time + TSTABLE;
+		     phase' = Stable;
+           ]
+     END;
+
+  tenv : MODULE = 
+     BEGIN
+       INPUT   tready : BOOLEAN
+       OUTPUT  tbit   : BIT_TYPE
+
+       TRANSITION
+       [
+           tready          --> tbit' IN {0,1};
+       []  ELSE            --> tbit' = tbit;
+       ]
+     END;
+
+   OneTransition   (w : WIRE) : WIRE = IF (w /= One) THEN ToOne ELSE w ENDIF;
+   ZeroTransition  (w : WIRE) : WIRE = IF (w /= Zero) THEN ToZero ELSE w ENDIF;
+   Stabilize (w : WIRE) : WIRE = IF w = ToOne THEN 
+                                       One 
+                                 ELSIF  w  = ToZero THEN 
+                                       Zero 
+                                 ELSE 
+                                       w
+                                 ENDIF;
+
+   tenc : MODULE =
+     BEGIN
+       INPUT   phase  : PHASE
+       OUTPUT  tdata  : WIRE
+       OUTPUT  tstate : TSTATE_TYPE
+       OUTPUT  tready : BOOLEAN
+       INPUT   tbit   : BIT_TYPE
+
+       INITIALIZATION
+
+         tdata  = One;
+         tstate = 9;
+
+       DEFINITION
+
+         tready =  phase = Stable AND tstate < 8
+
+       TRANSITION
+       [
+          phase = Stable AND tstate = 9 --> 
+                       tstate' = 9;
+       [] phase = Stable AND tstate = 9 -->
+                       tdata' = ToZero;
+	               tstate' = 0;
+       [] phase = Stable AND tstate < 9 -->
+                       tdata' =  IF tbit' = 1 OR tstate = 8 THEN 
+                                       OneTransition(tdata)
+                                 ELSE 
+                                       ZeroTransition(tdata)
+                                 ENDIF;
+                       tstate' = tstate + 1;
+       [] phase = Settle --> 
+                       tdata' = Stabilize(tdata);
+       ]
+  END;
+
+  tx : MODULE = tclock || tenv || tenc;
+
+  sample (w : WIRE) : [WIRE -> BOOLEAN] = IF (w = ToZero OR w = ToOne) THEN
+                                               {Zero, One} 
+                                          ELSE
+                                             { w}
+                                          ENDIF;
+
+  timeout (min : TIME, max : TIME) : [TIME -> BOOLEAN]  = 
+                  { x : TIME | min <= x AND x <=  max};
+
+  rclock : MODULE  =
+         BEGIN
+           INPUT time   : TIME
+	         INPUT rstate : [1..10]
+           OUTPUT rclk  : TIME
+
+         INITIALIZATION
+
+ 	         rclk IN { x : TIME | 0 <= x AND x < RSCANMAX };   
+
+         TRANSITION
+         [
+            time = rclk --> 
+                  rclk' IN IF (rstate' = 10) THEN
+  	                     timeout(time + RSCANMIN, time + RSCANMAX)
+                           ELSIF (rstate' = 1) THEN
+                             timeout(time + RSAMPMIN, time + RSAMPMAX)
+                           ELSE
+                             timeout(time + RPERIODMIN, time + RPERIODMAX)
+                           ENDIF;
+         ]
+  END;
+
+
+  rdec : MODULE =
+     BEGIN
+       INPUT  tdata  : WIRE
+       OUTPUT rstate : RSTATE_TYPE
+       OUTPUT rdata  : WIRE
+       OUTPUT rbit  : BIT_TYPE
+
+      INITIALIZATION
+         rdata  = One;
+         rstate = 10;
+       
+      TRANSITION
+         [
+	   rscan:
+	      rstate = 10 AND tdata /= Zero --> 
+	      	       	      	       rdata' = One;
+         [] rtostart:
+	      rstate = 10 AND tdata /= One  -->
+				       rdata' = Zero;
+                                       rstate' = 1;
+         [] rrun:
+	    rstate /= 10  --> 
+				       rdata' IN sample(tdata);
+				       rstate' = rstate + 1;
+               rbit' = IF rdata'= One THEN 1 ELSE 0 ENDIF
+         ]
+       END;
+
+     rx : MODULE = rdec || rclock;
+     system : MODULE = clock [] rx [] tx;
+
+
+
+RMAX : TIME = RSAMPMAX + RSCANMAX;
+
+
+mult(n: NATURAL, t: TIME): TIME = 
+  IF n <= 0 THEN 0
+  ELSE t + mult(n - 1, t)
+  ENDIF;
+
+disjunct_invar(n: TSTATE_TYPE, tstate: TSTATE_TYPE, rstate: RSTATE_TYPE, 
+               tdata: WIRE, rdata: WIRE, rclk: TIME, tclk: TIME, phase: PHASE): BOOLEAN =
+
+         ((tstate = n) AND 
+          (rstate = n) AND    
+	        (phase = Settle) AND
+          (rclk - tclk <= mult(n - 1, RPERIODMAX) + RMAX - mult(n, TPERIOD)) AND
+          (rclk - tclk >= mult(n - 1, RPERIODMIN) + RSAMPMIN - mult(n, TPERIOD) - TSETTLE))
+      OR
+          ((tstate = n) AND 
+           (rstate = n) AND    
+           (phase = Stable) AND
+	         (tclk - rclk <= mult(n + 1, TPERIOD) - mult(n - 1, RPERIODMIN) - RSAMPMIN) AND
+           (tclk - rclk >= mult(n, TPERIOD) + TSTABLE - mult(n - 1, RPERIODMAX) - RMAX))
+      OR
+          ((tstate = n) AND 
+           (rstate = n + 1) AND    
+           (phase = Stable) AND
+           (rclk - tclk <= mult(n, RPERIODMAX) + RMAX - mult(n, TPERIOD) - TSTABLE) AND
+           (rclk - tclk >= mult(n, RPERIODMIN) - mult(n + 1, TPERIOD) + RSAMPMIN));
+
+rec_states(n: TSTATE_TYPE, tstate: TSTATE_TYPE, rstate: RSTATE_TYPE, 
+           tdata: WIRE, rdata: WIRE, rclk: TIME, tclk: TIME, phase: PHASE): BOOLEAN =
+  IF n = 1 THEN disjunct_invar(n, tstate, rstate, tdata, rdata, rclk, tclk, phase)
+  ELSE     disjunct_invar(n, tstate, rstate, tdata, rdata, rclk, tclk, phase)
+        OR rec_states(n - 1, tstate, rstate, tdata, rdata, rclk, tclk, phase)
+  ENDIF;
+
+
+% sal-inf-bmc -d 1 -i uart_rec.sal l0
+% sal-inf-bmc -d 1 -i uart_rec.sal l1
+% sal-inf-bmc -d 1 -i uart_rec.sal l2
+% sal-inf-bmc -d 7 -l l0 -l l1 -l l2 -i uart_rec.sal l4
+% sal-inf-bmc -d 1 -l l0 -l l1 -l l2 -l l4 -i uart_rec.sal l3
+
+   l0 : LEMMA system |- G(phase = Settle OR tdata  = One OR tdata = Zero);
+   l1 : LEMMA system |- G(phase = Stable => (tclk <= (time + TSTABLE)));
+   l2 : LEMMA system |- G(phase = Settle => (tclk <= (time + TSETTLE)));
+   l4 : LEMMA system |- G(tstate = 9 AND phase = Settle => (tdata = ToOne or tdata = One));
+   l3 : LEMMA system |- G(tstate = 9 AND phase = Stable => tdata = One);
+
+%  sal-inf-bmc -d 3 -i -l l0 -l l1 -l l2 -l l3 -i uart_rec.sal t0 
+   t0 : THEOREM system |- G( 
+	     ((rstate = 10) AND 
+        (tstate = 9) AND 
+        (tdata = One) AND 
+        (rclk - tclk <= RSCANMAX) AND
+        ((tclk - rclk <= TSETTLE) OR (tclk - rclk <= TSTABLE)))
+    OR % start bit sent, not detected
+       ((rstate = 10) AND 
+        (tstate = 0) AND 
+        (tdata = ToZero) AND
+	      (phase = Settle) AND 
+        (rclk - tclk <= RSCANMAX) AND
+        (tclk - rclk <= TSETTLE))
+    OR % start bit sent, not detected
+	     ((rstate = 10) AND 
+        (tstate = 0) AND 
+        (tdata = Zero) AND
+	      (phase = Stable) AND
+	      (tclk - rclk >=  TSTABLE - RSCANMAX) AND
+        (tclk - rclk <= TSTABLE))
+    OR 
+      ((rstate = 1) AND 
+        (tstate = 0) AND 
+        (tdata = ToZero) AND
+	      (phase = Settle) AND
+	      (rclk - tclk <= RSAMPMAX) AND
+        (rclk - tclk >= RSAMPMIN - TSETTLE))
+   OR % start bit sent, detected
+      ((rstate = 1) AND 
+        (tstate = 0) AND 
+        (rdata = tdata) AND
+	      (phase = Stable) AND
+	      (rclk - tclk <= RSAMPMAX + RSCANMAX - TSTABLE) AND
+        (rclk - tclk >= RSAMPMIN - TPERIOD))
+  % -------------------
+ OR rec_states(9, tstate, rstate, tdata, rdata, rclk, tclk, phase)
+);
+
+
+% sal-inf-bmc -d 6 -i -l t0 uart_rec.sal Uart_Thm
+   Uart_Thm : THEOREM system |- G(rstate < 9 AND time = rclk => ((tclk /= time) AND
+                                                            (tstate = rstate)  AND
+                                                            X(rbit = tbit)));
+
+END
+

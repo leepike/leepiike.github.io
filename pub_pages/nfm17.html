@@ -1,0 +1,62 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Modular Model-Checking of a Byzantine Fault-Tolerant Protocol</title>
+</head>
+<body>
+<h1 style="text-align: center;">Modular Model-Checking of a Byzantine Fault-Tolerant Protocol<br>
+</h1>
+<hr style="width: 100%; height: 2px;">
+
+<ul> <li>ABSTRACT:<br><br>
+With proof techniques like IC3 and \emph{k}-induction, model-checking scales further
+than ever before. Still, fault-tolerant distributed systems are particularly
+challenging to model-check given their large state spaces and
+non-determinism. The typical approach to controlling complexity is to construct
+ad-hoc abstractions of faults, message-passing, and behaviors. However, these
+abstractions come at the price of divorcing the model from its implementation
+and making refactoring difficult. In this work, we present a model for
+fault-tolerant distributed system verification that combines ideas from the
+literature including calendar automata, symbolic fault injection, and abstract
+transition systems, and then use it to model-check various implementations of
+the Hybrid Oral Messages algorithm that differ in the fault model, timing model,
+and local node behavior. We show that despite being implementation-level models,
+the verifications are scalable and modular, insofar as isolated changes to an
+implementation require isolated changes to the model and proofs. This work is
+carried out in the SAL model-checker.
+</li></ul>
+
+<ul><li>BIBTEX:<br>
+<pre>@inproceedings{jones:nfm17,
+  author    = {Benjamin F. Jones and Lee Pike},
+  title     = {Modular Model-Checking of a Byzantine Fault-Tolerant Protocol},
+  booktitle = {Proceedings of the 9th NASA Formal Methods Symposium (NFM)},
+  year      = {2017},
+  publisher = {Lecture Notes in Computer Science},
+  note      = {Available at \url{http://www.cs.indiana.edu/~lepike/pub_pages/nfm17.html}.}
+}</pre> </li></ul>
+
+<ul><li>PAPER DOWNLOAD: <a href="../pubs/pike-nfm17.pdf">pdf</a>
+</li></ul>
+
+<ul><li>MODELS DOWNLOAD: <a href="https://github.com/GaloisInc/mmc-paper">sources</a></li>
+</li></ul>
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

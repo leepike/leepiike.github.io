@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<rdf:RDF
+xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+xmlns="http://my.netscape.com/rdf/simple/0.9/">
+
+<channel>
+<title>Lee Pike&#x27;s Papers</title>
+<link>http://www.cs.indiana.edu/~lepike/</link>
+<description>Research papers by Lee Pike.</description>
+</channel>
+<item>
+<title>SmartCheck: automatic and efficient counterexample reduction and generalization.</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/smartcheck.html</link>
+</item>
+<item>
+<title>Building embedded systems with embedded DSLs (experience report)</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/icfp14.html</link>
+</item>
+<item>
+<title>Programming languages for high-assurance autonomous vehicles (extended abstract)</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/plpv14.html</link>
+</item>
+<item>
+<title>A Study on Run Time Assurance for Complex Cyber Physical Systems</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/rta-cps.html</link>
+</item>
+<item>
+<title>Copilot: monitoring embedded systems</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/isse.html</link>
+</item>
+<item>
+<title>Experience report: a do-it-yourself high-assurance compiler</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/icfp2012.html</link>
+</item>
+<item>
+<title>Copilot: Monitoring Embedded Systems</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/copilot-cr.html</link>
+</item>
+<item>
+<title>When formal systems kill: computer ethics and formal methods</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/fmethics.html</link>
+</item>
+<item>
+<title>Runtime Verification for Ultra-Critical Systems</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/rv2011.html</link>
+</item>
+<item>
+<title>Formal Methods in Computer Aided Design (FMCAD&#x27;11)</title>
+<link>http://www.cs.indiana.edu/~lepike/http://www.cs.utexas.edu/users/ragerdl/fmcad11/</link>
+</item>
+<item>
+<title>Practical considerations in control-flow integrity monitoring</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/sectest.html</link>
+</item>
+<item>
+<title>Automated verification and refinement for physical-layer protocols</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/bmp-jrnl.html</link>
+</item>
+<item>
+<title>Copilot: A Hard Real-Time Runtime Monitor</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/rv2010.html</link>
+</item>
+<item>
+<title>Schr&#xF6;dinger&#x27;s CRCs (Fast Abstract)</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/dsn.html</link>
+</item>
+<item>
+<title>Monitoring distributed real-time systems: a survey and future directions</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/monitors.html</link>
+</item>
+<item>
+<title>Roll your own test bed for embedded real-time protocols: a Haskell experience</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/qc-biphase.html</link>
+</item>
+<item>
+<title>Post-hoc separation policy analysis with graph algorithms</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/infoflow.html</link>
+</item>
+<item>
+<title>Toward monitoring fault-tolerant embedded systems (extended abstract)</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/shm.html</link>
+</item>
+<item>
+<title>Model checking for the practical verificationist: a user&#x27;s perspective on SAL</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/afm07.html</link>
+</item>
+<item>
+<title>Modeling time-triggered protocols and verifying their real-time schedules</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/fmcad.html</link>
+</item>
+<item>
+<title>Temporal refinement using SMT and model checking with an application to physical-layer protocols</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html</link>
+</item>
+<item>
+<title>Diagnosing a failed proof in fault-tolerance: a disproving challenge problem</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/disproving.html</link>
+</item>
+<item>
+<title>A note on inconsistent axioms in Rushby&#x27;s &#x22;Systematic formal verification for fault-tolerant time-triggered algorithms&#x22;</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/time_triggered.html</link>
+</item>
+<item>
+<title>A verifying core for a cryptographic language compiler</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/acl2.html</link>
+</item>
+<item>
+<title>&#x22;Easy&#x22; parameterized verification of cross clock domain protocols</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/dcc.html</link>
+</item>
+<item>
+<title>Easy parameterized verification of biphase and 8N1 protocols</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/bmp.html</link>
+</item>
+<item>
+<title>Formal Verification of Time-Triggered Systems</title>
+<link>http://www.cs.indiana.edu/~lepike/./phd.html</link>
+</item>
+<item>
+<title>The formal verification of a reintegration protocol</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/emsoft.html</link>
+</item>
+<item>
+<title>Real-time system verification by k-induction</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/reint.html</link>
+</item>
+<item>
+<title>Model checking failed conjectures in theorem proving: a case study</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/unproven.html</link>
+</item>
+<item>
+<title>Abstractions for fault-tolerant distributed system verification</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/abstractions.html</link>
+</item>
+<item>
+<title>Logics for classes of boolean monoids</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/boolean_monoids.html</link>
+</item>
+<item>
+<title>A unified fault-tolerance protocol</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/unified.html</link>
+</item>
+<item>
+<title>Towards automotive software health management</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/cps-uscar.html</link>
+</item>
+<item>
+<title>Unmanned autonomous verification and validation (position paper)</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/mixedCrit.html</link>
+</item>
+<item>
+<title>High-Confidence Bus Architectures: The Backbone of Automotive Cyber-Physical Systems</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/cyber-physical-hcss.html</link>
+</item>
+<item>
+<title>How to pretty-print a long formula</title>
+<link>http://www.cs.indiana.edu/~lepike/pub_pages/holpp.html</link>
+</item>
+</rdf:RDF>

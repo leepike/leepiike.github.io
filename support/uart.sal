@@ -1,0 +1,283 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown @ cs.indiana.edu>           %%
+%% Lee Pike, Galois Connections, Inc. <leepike @ galois.com>                %%
+%% Copyright, 2005                                                          %%
+%%                                                                          %%
+%% SAL 2.3 (2.4 compatible)                                                 %%
+%%                                                                          %%
+%% Specification and verification of a 8N1 decoder.                         %%
+%%                                                                          %%
+%% A paper describing this specification, to be published in TACAS, 2006    %%
+%% is available from the authors.                                           %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+uart: CONTEXT = 
+
+BEGIN
+
+  TIME : TYPE = REAL;
+
+  TPERIOD : TIME = 16;
+  TSAMPLE : TIME = 23;
+
+% The following leads to an error
+% TSETTLE : { x : TIME | 0 <= x AND x < TPERIOD / 2 };
+
+ TSETTLE : { x : TIME | 0 <= x AND x < TPERIOD / 4 };
+
+ TSTABLE : TIME = TPERIOD - TSETTLE;
+
+% The following is verifiable directly.
+%  ERROR : { x : TIME | 0 <= x AND
+%                       (9*TPERIOD + TSETTLE < 8*TPERIOD*(1-x) + TSAMPLE*(1-x)) AND
+%                       ((8*TPERIOD * (1+x) + TSAMPLE*(1+x) + (1+x) + TSETTLE) 
+%                                        < 10*TPERIOD)};
+
+%  For maximum TSETTLE, ERROR < 3/151
+  MAXERROR : TIME = 3/151;
+  ERROR : { x: TIME | 0 <= x AND x < MAXERROR };
+
+  PERROR : TIME = TPERIOD * MAXERROR;
+
+  RPERIODMAX : TIME = TPERIOD * (1 + ERROR);
+  RPERIODMIN : TIME = TPERIOD * (1 - ERROR);
+  RSAMPMAX   : TIME = TSAMPLE  * (1 + ERROR);
+  RSAMPMIN   : TIME = TSAMPLE  * (1 - ERROR);
+  RSCANMAX   : TIME = 1 + ERROR;
+  RSCANMIN   : TIME = 1 - ERROR;
+
+%---------------------------------------------------------
+%  Clock module: makes time elapse up to the next timeout
+%---------------------------------------------------------
+
+  clock: MODULE = 
+    BEGIN
+      INPUT  rclk : TIME
+      INPUT  tclk : TIME
+      OUTPUT time : TIME
+
+    INITIALIZATION
+      time = 0
+
+    TRANSITION
+      [ 
+         time < rclk AND rclk <= tclk --> time' = rclk
+      [] time < tclk AND tclk <= rclk --> time' = tclk
+      ]
+    END;
+
+%---------------------
+%  
+% Transmitter
+%
+%---------------------
+
+  PHASE:  TYPE = { Stable, Settle };
+  WIRE:   TYPE = { Zero, One, ToZero, ToOne };
+
+  tclock : MODULE =
+    BEGIN
+       INPUT  time   : TIME
+       OUTPUT tclk   : TIME
+       OUTPUT phase  : PHASE
+  
+    INITIALIZATION
+
+       phase = Stable;
+       tclk  IN {x : TIME | 0 <= x AND x <= TSTABLE};
+
+    TRANSITION
+           [
+              time = tclk AND phase = Stable -->
+                     tclk' = time + TSETTLE;
+                     phase' = Settle;
+		     
+           [] time = tclk AND phase = Settle -->
+                     tclk' = time + TSTABLE;
+		     phase' = Stable;
+           ]
+     END;
+
+  tenv : MODULE = 
+     BEGIN
+       INPUT   tready : BOOLEAN
+       OUTPUT  tbit   : [0..1]
+
+       TRANSITION
+       [
+           tready          --> tbit' IN {0,1};
+       []  ELSE            --> tbit' = tbit;
+       ]
+     END;
+
+   OneTransition   (w : WIRE) : WIRE = IF (w /= One) THEN ToOne ELSE w ENDIF;
+   ZeroTransition  (w : WIRE) : WIRE = IF (w /= Zero) THEN ToZero ELSE w ENDIF;
+   Stabilize (w : WIRE) : WIRE = IF w = ToOne THEN 
+                                       One 
+                                 ELSIF  w  = ToZero THEN 
+                                       Zero 
+                                 ELSE 
+                                       w
+                                 ENDIF;
+
+   tenc : MODULE =
+     BEGIN
+       INPUT   phase  : PHASE
+       OUTPUT  tdata  : WIRE
+       OUTPUT  tstate : [0..9]
+       OUTPUT  tready : BOOLEAN
+       INPUT   tbit   : [0..1]
+
+       INITIALIZATION
+
+         tdata  = One;
+         tstate = 9;
+
+       DEFINITION
+
+         tready =  phase = Stable AND tstate < 8
+
+       TRANSITION
+       [
+          phase = Stable AND tstate = 9 --> 
+                       tstate' = 9;
+       [] phase = Stable AND tstate = 9 -->
+                       tdata' = ToZero;
+	               tstate' = 0;
+       [] phase = Stable AND tstate < 9 -->
+                       tdata' =  IF tbit' = 1 OR tstate = 8 THEN 
+                                       OneTransition(tdata)
+                                 ELSE 
+                                       ZeroTransition(tdata)
+                                 ENDIF;
+                       tstate' = tstate + 1;
+       [] phase = Settle --> 
+                       tdata' = Stabilize(tdata);
+       ]
+  END;
+
+  tx : MODULE = tclock || tenv || tenc;
+
+  sample (w : WIRE) : [WIRE -> BOOLEAN] = IF (w = ToZero OR w = ToOne) THEN
+                                               {Zero, One} 
+                                          ELSE
+                                             { w}
+                                          ENDIF;
+
+  timeout (min : TIME, max : TIME) : [TIME -> BOOLEAN]  = 
+                  { x : TIME | min <= x AND x <=  max};
+
+  rclock : MODULE  =
+         BEGIN
+           INPUT time   : TIME
+	         INPUT rstate : [1..10]
+           OUTPUT rclk  : TIME
+
+         INITIALIZATION
+
+ 	         rclk IN { x : TIME | 0 <= x AND x < RSCANMAX };   
+
+         TRANSITION
+         [
+            time = rclk --> 
+                  rclk' IN IF (rstate' = 10) THEN
+  	                     timeout(time + RSCANMIN, time + RSCANMAX)
+                           ELSIF (rstate' = 1) THEN
+                             timeout(time + RSAMPMIN, time + RSAMPMAX)
+                           ELSE
+                             timeout(time + RPERIODMIN, time + RPERIODMAX)
+                           ENDIF;
+         ]
+  END;
+
+
+  rdec : MODULE =
+     BEGIN
+       INPUT  tdata  : WIRE
+       OUTPUT rstate : [1..10]
+       OUTPUT rdata  : WIRE
+       OUTPUT rbit  : [0..1]
+
+      INITIALIZATION
+         rdata  = One;
+         rstate = 10;
+       
+      TRANSITION
+         [
+	   rscan:
+	      rstate = 10 AND tdata /= Zero --> 
+	      	       	      	       rdata' = One;
+         [] rtostart:
+	      rstate = 10 AND tdata /= One  -->
+				       rdata' = Zero;
+                                       rstate' = 1;
+         [] rrun:
+	    rstate /= 10  --> 
+				       rdata' IN sample(tdata);
+				       rstate' = rstate + 1;
+               rbit' = IF rdata'= One THEN 1 ELSE 0 ENDIF
+         ]
+       END;
+
+     rx : MODULE = rdec || rclock;
+     system : MODULE = clock [] rx [] tx;
+
+% sal-inf-bmc -d 1 -i uart.sal l0
+% sal-inf-bmc -d 1 -i uart.sal l1
+% sal-inf-bmc -d 1 -i uart.sal l2
+% sal-inf-bmc -d 13 -l l0 -l l1 -l l2 -i uart.sal l3
+   l0 : LEMMA system |- G(phase = Settle OR tdata  = One OR tdata = Zero);
+   l1 : LEMMA system |- G(phase = Stable => (tclk <= (time + TSTABLE)));
+   l2 : LEMMA system |- G(phase = Settle => (tclk <= (time + TSETTLE)));
+   l3 : LEMMA system |- G(tstate = 9 AND phase = Stable => tdata = One);
+
+%  sal-inf-bmc -d 3 -i -l l0 -l l1 -l l2 -l l3 -i uart.sal t0 
+   t0: THEOREM system |- G( 
+             ((phase = Settle) AND
+              (rstate = 1)  AND
+              (tstate = 0) AND
+              (rclk - tclk - TPERIOD > 8 * PERROR) AND
+              (tclk + TPERIOD + TSTABLE - rclk > 8 * PERROR)) 
+         OR
+             ((phase = Stable) AND
+              (rstate = tstate + 1) AND
+              ((rclk - tclk - TSETTLE) > (9- rstate) * PERROR) AND
+	      (tclk + TPERIOD - rclk  > (9 - rstate) * PERROR) AND
+	      (rdata = tdata))
+	  OR 	
+       	    ((phase = Settle) AND 
+	     (rstate = tstate) AND
+	     (rclk - tclk > (9 - tstate) * PERROR) AND
+	     (tclk + TSTABLE - rclk > (9 - rstate) * PERROR))
+	  OR 
+	     ((phase = Stable) AND
+	      (rstate = tstate) AND
+	      (tclk - rclk > (9 - rstate) * PERROR)  AND
+	      (rclk  - tclk + TSTABLE > (9 - rstate) * PERROR))
+          OR	     
+	     ((rstate = 10) AND 
+              (tstate = 9) AND 
+              ((phase = Stable AND tdata = One) OR phase = Settle) AND
+              (rdata = tdata) AND
+              (rclk <= time + RSCANMAX))
+          OR
+             ((rstate = 10) AND 
+              (tstate = 0) AND 
+              (tdata = ToZero AND rdata = One) AND
+	      (phase = Settle) AND 
+              (rclk <= time + RSCANMAX))
+          OR
+	     ((rstate = 10) AND 
+              (tstate = 0) AND 
+              (tdata =  Zero AND rdata = One) AND
+	      (phase = Stable) AND
+	      (tclk - rclk >=  TSTABLE - RSCANMAX)));
+
+% sal-inf-bmc -d 6 -i -l t0 uart.sal Uart_Thm
+   Uart_Thm : THEOREM system |- G(rstate < 9 AND time = rclk => ((tclk /= time) AND
+                                                            (tstate = rstate)  AND
+                                                            X(rbit = tbit)));
+
+
+END
+

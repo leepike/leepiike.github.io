@@ -1,0 +1,82 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Experience Report: a Do-It-Yourself High-Assurance Compiler</title>
+</head>
+<body>
+<h1 style="text-align: center;">Experience Report: a Do-It-Yourself High-Assurance Compiler<br></h1>
+<hr style="width: 100%; height: 2px;">
+
+<br>
+<center><b><a href="http://www.sigplan.org/Newsletters/CACM/Main">SIGPLAN</a> Comm. of the ACM "Research Highlights" <a href="http://www.sigplan.org/Newsletters/CACM/Papers">nominated paper</a></b></center>.
+
+<ul>
+  <li>ABSTRACT:<br>
+    <br> 
+Embedded domain-specific languages (EDSLs) are an approach for
+quickly building new languages while maintaining the advantages
+of a rich metalanguage. We argue in this experience report that
+the "EDSL approach" can surprisingly ease the task of building a
+high-assurance compiler. We do not strive to build a fully formally-
+verified tool-chain, but take a "do-it-yourself" approach to increase
+our confidence in compiler-correctness without too much effort.
+Copilot is an EDSL developed by Galois, Inc. and the National
+Institute of Aerospace under contract to NASA for the purpose of
+runtime monitoring of flight-critical avionics. We report our experience in using type-checking, QuickCheck, and model-checking
+"off-the-shelf" to quickly increase confidence in our EDSL tool-chain.
+  </li>
+</ul>
+<ul>
+  <li>BIBTEX:<br>
+    <pre>
+@InProceedings{pike-icfp-12,
+  author =    {Lee Pike and Nis Wegmann and Sebastian Niller and Alwyn Goodloe},
+  title =     {Experience Report: a Do-It-Yourself High-Assurance Compiler},
+  booktitle = {Proceedings of the Intl. Conference on Functional Programming (ICFP)},
+  publisher = {ACM},
+  year =      {2012},
+  month =     {September},
+  note =      {Preprint available at \url{http://www.cs.indiana.edu/~lepike/pub_pages/icfp2012.html}},
+}
+</pre>
+</li></ul>
+<ul>
+  <li>PAPER DOWNLOAD: <a href="../pubs/pike-icfp12.pdf">pike-icfp12.pdf</a> 
+</li>
+</ul>
+
+<ul>
+  <li>TALK DOWNLOAD: <a href="../talks/pike-icfp12.pdf">pike-icfp12.pdf</a><br>
+  There is also <a href="http://www.youtube.com/watch?v=7zXhP--9axQ">a video of the presentation</a> on Youtube.
+</li>
+</ul>
+
+<ul>
+  <li>Copilot Compiler and Language: <a href="http://leepike.github.com/Copilot/">http://leepike.github.com/Copilot/</a>.</li>
+</li>
+</ul>
+
+<ul>
+  <li>Erratum: Pg. 4, col. 2: In the sentence, "We also check at compile-time that streams are productive; for
+example, the stream definition x = x fails type-checking.", the equation 'x = x' should read 'x = local x (\_ -> x)', i.e., a let expression in the Copilot language.
+</li>
+</ul>
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

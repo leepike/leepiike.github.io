@@ -1,0 +1,391 @@
+% Lee Pike 
+% leepike @ galois.com
+%
+% File for the paper 
+% "Model Checking Failed Conjectures in Theorem Proving: A Case Study"
+% Model adapted from that provided by John Rushby, located at
+% http://www.csl.sri.com/users/rushby/abstracts/om1
+
+om1: CONTEXT =
+BEGIN
+
+R: NATURAL = 3;
+B: NATURAL = 2;
+
+%%%%%%%% TYPES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+RMUs:     TYPE = [1..R];  % RMU indicies
+BIUs:     TYPE = [1..B];  % BIU indicies
+STAGE:    TYPE = [1..5];  % synchronous execution stages
+FAULTS:   TYPE = {asymmetric, symmetric, benign, good}; % Hybrid Fault Model
+ACC:      TYPE = {trusted, accused, declared};          % Local diagnostics
+B_ACC:    TYPE = ARRAY RMUs OF ACC;          % One BIUs accs of RMUs
+B_ACCs:   TYPE = ARRAY BIUs OF B_ACC;        % BIUs accs of the RMUs
+R_ACCs:   TYPE = ARRAY RMUs OF ACC;          % RMUs accs of the General
+GEN_ACCs: TYPE = ARRAY BIUs OF ACC;          % BIUs accs of the General
+VALS:     TYPE = [0..R+2];                   % total kinds of value messages
+R_FAULTS: TYPE = ARRAY RMUs OF FAULTS;       % global fault state of RMUs
+RVEC:     TYPE = ARRAY RMUs OF VALS;         
+VVEC:     TYPE = ARRAY BIUs OF VALS;
+VVECS:    TYPE = ARRAY RMUs OF VVEC;
+ALL:      TYPE = [0..R];                     % RMUs in eligibility set
+FC:       TYPE = RMUs;                       % Number of faulty RMUs
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+rec_err:   VALS = 0;
+correct_v: VALS = R+1;
+src_err:   VALS = R+2;
+
+%%%%%%%%%%%%%%%%% CONTROLLER %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+controller: MODULE =
+BEGIN
+OUTPUT
+  pc: STAGE,
+  G_status: FAULTS,
+  r_status: R_FAULTS,
+  F_BB: GEN_ACCs,
+  F_RB: B_ACCs,
+  F_BR: R_ACCs
+INITIALIZATION
+  pc = 1;
+
+  G_status IN {f: FAULTS | TRUE};           % General's fault status
+
+  r_status IN {f: R_FAULTS | TRUE};        % RMUs fault statuses
+
+  F_BB IN {a: GEN_ACCs | TRUE};   
+
+  F_RB IN {a: B_ACCs | TRUE};
+
+  F_BR IN {a: R_ACCs | TRUE};
+
+TRANSITION
+[
+  pc <= 4 --> pc' = pc+1
+[]
+  ELSE -->
+]
+END;
+
+%%%%%%%%%%%%%%%%%% GENERAL %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+general: MODULE =
+BEGIN
+OUTPUT
+  G_out: RVEC
+INPUT
+  pc: STAGE,
+  G_status: FAULTS
+TRANSITION
+[
+  pc = 1 AND (G_status = good OR G_status = symmetric) -->
+    G_out' = [[i:RMUs] correct_v]
+[]
+  pc = 1 AND G_status = benign -->
+    G_out' = [[i:RMUs] rec_err]
+[]
+  pc = 1 AND G_status = asymmetric --> 
+    G_out' IN {a: RVEC | TRUE}
+[]
+  ELSE -->
+]
+END;
+
+%%%%%%%%%%%%%%%%%%%% RMU %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+rmu[i: RMUs]: MODULE =
+BEGIN
+INPUT
+  pc: STAGE,
+  r_in: VALS,
+  rf: FAULTS,
+  r_acc: ACC
+OUTPUT
+  r_out: VVEC
+TRANSITION
+[
+  pc = 2 AND rf = good AND r_in = rec_err -->
+    r_out' = [[p:BIUs] src_err]   
+
+% below is the IC protocol fix.  Comment out the above statement
+% and uncommment the 4 lines below to obtain the new protocol.
+
+%   pc = 2 AND rf = good AND (r_in = rec_err OR r_acc = accused) -->
+%     r_out' = [[p:BIUs] src_err] 
+[]
+  pc = 2 AND rf = good AND r_in /= rec_err
+  % IC fix: 
+%   AND r_acc /= accused 
+  -->
+    r_out' = [[p:BIUs] r_in]   
+[]
+  pc = 2 AND rf = benign -->
+    r_out' = [[p:BIUs] rec_err]   
+[]
+  ([] (x:VALS): pc = 2 AND rf = symmetric -->
+    r_out' = [[p:BIUs] x])
+[]
+  pc = 2 AND rf = asymmetric --> 
+    r_out' IN {a: VVEC | TRUE}
+[]
+  ELSE -->
+]
+END;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%% BIU %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%--------------------------------------
+%% counts up the values received
+
+count_h(a: RVEC, v: VALS, r: RMUs, b_acc: B_ACC): ALL = 
+  IF r = 1
+  THEN (IF a[r] = v AND b_acc[r] = trusted THEN 1 ELSE 0 ENDIF)
+  ELSE (IF a[r] = v AND b_acc[r] = trusted THEN 1 ELSE 0 ENDIF) +
+       count_h(a, v, r-1, b_acc)
+  ENDIF;
+
+count(a: RVEC, v: VALS, b_acc: B_ACC): ALL = 
+  count_h(a, v, R, b_acc); 
+%%--------------------------------------
+
+%%--------------------------------------
+%% filters out the benign faulty 
+%% from the eligible set 
+
+filter_h(r_status: R_FAULTS, b_acc: B_ACC, r: RMUs): ALL = 
+  IF r = 1
+  THEN (IF r_status[r] /= benign AND b_acc[r] = trusted THEN 1 ELSE 0
+        ENDIF)
+  ELSE (IF r_status[r] /= benign AND b_acc[r] = trusted THEN 1 ELSE 0 
+        ENDIF) + filter_h(r_status, b_acc, r-1)
+  ENDIF;
+
+filter_elg(r_status: R_FAULTS, b_acc: B_ACC): ALL = 
+  filter_h(r_status, b_acc, R);
+%% -------------------------------------
+
+biu[p:BIUs]: MODULE =
+BEGIN
+INPUT
+  vecs: VVECS,
+  pc: STAGE,
+  general_acc: ACC,
+  b_acc: B_ACC,
+  r_status: R_FAULTS
+LOCAL
+  inv: RVEC
+OUTPUT
+  vote: VALS
+DEFINITION
+  inv = [[i:RMUs] vecs[i][p]]
+TRANSITION
+[
+  general_acc = declared AND pc=3 --> vote' = src_err
+[]
+ ([] (i: [1..R+2]):
+    pc = 3 AND 
+    general_acc /= declared AND
+    2*count(inv, i, b_acc) > filter_elg(r_status, b_acc) --> vote' = i)
+[]
+  ELSE --> vote' = src_err
+]
+END;
+
+%%%%%%%%%%%%%%%%%%%%% SYSTEM %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+SYSTEM: MODULE = 
+       controller 
+    || general
+    || (WITH OUTPUT vecs: VVECS
+        WITH INPUT G_out: RVEC
+        WITH INPUT r_status: R_FAULTS
+        WITH INPUT F_BR: R_ACCs
+          (|| (r: RMUs): RENAME r_in TO G_out[r],
+                               r_out TO vecs[r],
+                               rf TO r_status[r],
+                               r_acc TO F_BR[r]
+                        IN rmu[r]))
+    || (WITH OUTPUT robus_ic: VVEC
+        WITH INPUT F_BB: GEN_ACCs 
+        WITH INPUT F_RB: B_ACCs
+          (|| (b: BIUs):  RENAME vote TO robus_ic[b],
+                                general_acc TO F_BB[b],
+                                b_acc TO F_RB[b]
+                         IN biu[b]));
+
+
+%%%%%%%%%%%%%%%%%%%% FAULT ASSUMPTIONS %%%%%%%%%%%%%%%%%%%%%
+intersect(b_acc: B_ACC, r_status: R_FAULTS, 
+          r: RMUs, fclass: FAULTS): [0..1] = 
+  IF (b_acc[r] = trusted AND r_status[r] = fclass) 
+  THEN 1 ELSE 0 ENDIF;
+
+fcount_h(b_acc: B_ACC, r_status: R_FAULTS, r: RMUs, fclass: FAULTS): FC = 
+  IF r=1 
+  THEN intersect(b_acc, r_status, r, fclass) 
+  ELSE intersect(b_acc, r_status, r, fclass) + 
+       fcount_h(b_acc, r_status, r-1, fclass) 
+  ENDIF;
+
+fcount(b_acc: B_ACC, r_status: R_FAULTS, fclass: FAULTS): FC = 
+  fcount_h(b_acc, r_status, R, fclass); 
+
+% Hybrid majority good in BIU eligibile sets
+IC_DMFA2(r_status: R_FAULTS, F_RB: B_ACCs): bool = 
+  (FORALL (b: BIUs): 
+     fcount(F_RB[b], r_status, good) > 
+     fcount(F_RB[b], r_status, symmetric) + 
+     fcount(F_RB[b], r_status, asymmetric));
+
+% No asymmetric RMUs trusted by BIUs
+IC_DMFA3_b(r_status: R_FAULTS, F_RB: B_ACCs): bool =
+  FORALL (b: BIUs): FORALL (r: RMUs): 
+    F_RB[b][r] = trusted => r_status[r] /= asymmetric;
+
+% Good RMUs don't trust an asymmetric General
+IC_DMFA3_r(r_status: R_FAULTS, F_BR: R_ACCs, G_status: FAULTS): bool = 
+  FORALL (r1: RMUs): 
+    (r_status[r1] = good AND F_BR[r1] = trusted) => G_status /= asymmetric;
+
+% No asymmetric eligible General or no asymmetric eligible RMUs
+IC_DMFA3(r_status: R_FAULTS, F_BR: R_ACCs, 
+      G_status: FAULTS, F_RB: B_ACCs): bool =
+  IC_DMFA3_b(r_status, F_RB) OR IC_DMFA3_r(r_status, F_BR, G_status);
+
+IC_DMFA(r_status: R_FAULTS, F_RB: B_ACCs, F_BR: R_ACCs, G_status: FAULTS): bool = 
+  IC_DMFA2(r_status, F_RB) AND
+  IC_DMFA3(r_status, F_BR, G_status, F_RB);
+
+%%%%%%%%%%%% SYMMETRIC AGREEMENT %%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Symmetric Agreement between BIUs of RMUs
+sym_agree_b(r_status: R_FAULTS, F_RB: B_ACCs): bool = 
+  FORALL (b1,b2: BIUs): FORALL (r: RMUs):
+    IF r_status[r] /= asymmetric 
+    THEN F_RB[b1][r] = F_RB[b2][r]
+    ELSE TRUE
+    ENDIF;
+
+% Symmetric Agreement between RMUs of General
+sym_agree_r(G_status: FAULTS, F_BR: R_ACCs): bool = 
+  FORALL (r1,r2: RMUs):
+    IF G_status /= asymmetric 
+    THEN F_BR[r1] = F_BR[r2]
+    ELSE TRUE
+    ENDIF;
+
+sym_agree(r_status: R_FAULTS, F_RB: B_ACCs, 
+          G_status: FAULTS, F_BR: R_ACCs): bool = 
+  sym_agree_b(r_status, F_RB) AND
+  sym_agree_r(G_status, F_BR);
+
+%%%%%%%%%%% DECLARATION AGREEMENT %%%%%%%%%%%%%%%%%%%%%%%%%%
+% declaration agreement between BIUs of RMUs
+dec_agree_b_r(F_RB: B_ACCs): bool = 
+  FORALL (b1,b2: BIUs): FORALL (r: RMUs):
+    IF F_RB[b1][r] = declared 
+    THEN F_RB[b2][r] = declared
+    ELSE TRUE
+    ENDIF;
+
+% declaration agreement between BIUs of General
+dec_agree_b_g(F_RB: B_ACCs): bool = 
+  FORALL (b1,b2: BIUs): FORALL (r: RMUs):
+    IF F_RB[b1][r] = declared 
+    THEN F_RB[b2][r] = declared
+    ELSE TRUE
+    ENDIF;
+
+% declaration agreement between RMUs of General
+dec_agree_r_g(F_BR: R_ACCs): bool = 
+  FORALL (r1,r2: RMUs): 
+    IF F_BR[r1] = declared 
+    THEN F_BR[r2] = declared
+    ELSE TRUE
+    ENDIF;
+
+% declaration agreement between BIUs and RMUs of General
+dec_agree_b_r_g(F_BB: GEN_ACCs, F_BR: R_ACCs): bool = 
+  FORALL (b: BIUs): FORALL (r: RMUs):
+      IF F_BB[b] = declared 
+      THEN F_BR[r] = declared
+      ELSE TRUE
+      ENDIF 
+    AND
+      IF F_BR[r] = declared 
+      THEN F_BB[b] = declared
+      ELSE TRUE
+      ENDIF;
+
+dec_agree(F_RB: B_ACCs, F_BR: R_ACCs, F_BB: GEN_ACCs): bool = 
+  dec_agree_b_r(F_RB) AND
+  dec_agree_b_g(F_RB) AND
+  dec_agree_r_g(F_BR) AND
+  dec_agree_b_r_g(F_BB, F_BR);
+
+%%%%%%%%%%%%%%% GOOD TRUSTING %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+good_trust_b_r(r_status: R_FAULTS, F_RB: B_ACCs): bool = 
+  FORALL (b: BIUs): FORALL (r: RMUs):
+    IF r_status[r] = good 
+    THEN F_RB[b][r] = trusted
+    ELSE TRUE
+    ENDIF;
+
+good_trust_r_g(G_status: FAULTS, F_BR: R_ACCs): bool = 
+  FORALL (r: RMUs):
+    IF G_status = good 
+    THEN F_BR[r] = trusted
+    ELSE TRUE
+    ENDIF;
+
+good_trust(r_status: R_FAULTS, F_RB: B_ACCs, 
+           G_status: FAULTS, F_BR: R_ACCs): bool = 
+  good_trust_b_r(r_status, F_RB) AND
+  good_trust_r_g(G_status, F_BR);
+
+%%%%%%%%%%%%%% DIAGNOSTIC ASSUMPTIONS %%%%%%%%%%%%%%%%%%%%%%
+all_correct_accs(r_status: R_FAULTS, F_RB: B_ACCs, G_status: FAULTS, 
+              F_BR: R_ACCs, F_BB: GEN_ACCs): bool = 
+  sym_agree(r_status, F_RB, G_status, F_BR) AND
+  dec_agree(F_RB, F_BR, F_BB) AND
+  good_trust(r_status, F_RB, G_status, F_BR);
+
+
+%%%%%%%%%%%%%%%%%%%%% CONJECTURES %%%%%%%%%%%%%%%%%%%%%%%%%%
+
+live_0: THEOREM SYSTEM |- F(pc=4);
+live_1: THEOREM SYSTEM |- G(F(pc=5));
+live_2: THEOREM SYSTEM |- F(G(pc=5));
+
+% True
+validity: THEOREM SYSTEM |- 
+  G(  pc = 4 AND G_status = good AND 
+      IC_DMFA(r_status, F_RB, F_BR, G_status) AND
+      all_correct_accs(r_status, F_RB, G_status, F_BR, F_BB)    
+    =>                           
+      FORALL (b: BIUs): robus_ic[b] = correct_v
+    );
+
+% False, counter-example produced
+agreement: THEOREM SYSTEM |- 
+  G(  pc = 4 AND 
+      IC_DMFA(r_status, F_RB, F_BR, G_status) AND
+      all_correct_accs(r_status, F_RB, G_status, F_BR, F_BB)  
+    =>
+      FORALL (b1, b2: BIUs): robus_ic[b1] = robus_ic[b2]
+   );
+
+% False, counter-example produced
+counterex: THEOREM SYSTEM |-
+  G(  (pc = 4 AND
+       r_status[1] = good AND
+       G_status = asymmetric AND
+       IC_DMFA(r_status, F_RB, F_BR, G_status) AND
+       all_correct_accs(r_status, F_RB, G_status, F_BR, F_BB))
+    => 
+      (F_BR[1] = trusted OR
+       F_BB[2] = declared OR
+       (FORALL (r: RMUs): 
+          F_RB[1][r] = trusted => r_status[r] /= asymmetric AND
+        FORALL (r: RMUs): 
+          F_RB[2][r] = trusted => r_status[r] /= asymmetric) OR
+       F_BB[1] = declared OR
+       robus_ic[1] = robus_ic[2])
+   );
+
+END

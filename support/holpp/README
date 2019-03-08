@@ -1,0 +1,106 @@
+# README for beautifHOL, a HOL prettyprinter
+# Based on the paper found at http://www.cs.indiana.edu/~lepike/pub_pages/pphol.html
+# Lee Pike <lee-pike-@-gma-il-.com> (remove dashes)
+# Jan 5, 2009
+# Copyright 2008
+
+#  This file is part of beautifHOL.
+# BSD3.
+
+This README contains the following sections:
+
+* Program Description
+* License information
+* Installation information 
+* Usage information
+* How to modify the program
+* Todos (including known bugs)
+
+==DESCRIPTION==
+
+This is a pretty-printer for higher-order logic (HOL).  It reads in a formula
+and outputs it to standard out.  More information about the pretty-printer can
+be found in the paper, "How to Pretty-Print a Long Formula"
+<http://www.cs.indiana.edu/~lepike/pubs/pike-holpp.pdf>.
+
+==LICENSE==
+
+BSD3 license.
+
+==INSTALLATION==
+
+This program is distributed as a Cabal package, a packaging system for Haskell
+programs.  For information on how to install a Cabal package, see
+<http://www.haskell.org/haskellwiki/Cabal/How_to_install_a_Cabal_package>.  The
+easiest way to install a Cabal package is to use cabal-install:
+<http://hackage.haskell.org/trac/hackage/wiki/CabalInstall>.  Instructions for
+getting cabal-install are located there.
+
+==USAGE==
+
+If you install this program using Cabal (describe above), then the executable,
+beautifulHOL, should be in your path.  Then issue
+
+          > beautifHOL
+
+to interact with the program in a read-eval-print loop.  From there, you can
+enter HOL formulas.  Examples of the syntax can be found in the file
+formulas.txt.  Be sure to terminate a formula with a semicolon.  After entering
+a formula, its pretty-printed rendering will be sent to standard out.
+
+The available options to the program can be seen by issuing
+
+          > beautifHOL --help
+
+Among others, there is an option to suppress labels (--nolabel) and an option to
+read in a set of formulas from a file and print their renderings to
+standard-out.  For example, issuing
+
+          > beautifHOL --f formulas.txt
+
+will render all the example formulas.
+         
+==MODIFYING THE PROGRAM==
+
+The syntax of the current input language is documented in
+<http://www.cs.indiana.edu/~lepike/pub_pages/docHOL.pdf>.
+
+To modify the input language to use with other variants of HOL, you will need
+the BNF Converter (BNFC).  BNFC is an GPL-licensed that generates a
+compiler-front end from a labeled Bakus Normal Form language specification.  It
+also generates docs, etc.  BNFC is available at
+<http://www.cs.chalmers.se/Cs/Research/Language-technology/BNFC/>.  The latest
+version can be obtained by issuing
+
+  darcs get --partial
+  http://www.cs.chalmers.se/Cs/Research/Language-technology/darcs/BNFC/
+
+There are only three files you need to modify:
+  * HOL.cf, the BNF specification of the input grammar, read in by BNFC.
+  * PrintHOL.hs, the guts of the pretty-printer.
+  * ConfigHOL.hs, 
+
+==TODOs==
+
+  ==Code Cleanups==
+  * Remove dead code.
+  * Run HPC and HLint over this.
+  * How spaces are handled needs to be reimplemented.
+  * Should be reimplemented to use SPJ/John Hughes pretty-printing library:
+    pretty on Hackage
+    <http://hackage.haskell.org/cgi-bin/hackage-scripts/package/pretty>.
+
+  ==New Functionality== 
+  * Desired new functionality is described in the accompanying paper, "How to
+    Pretty-Print a Long Formula" (pphol.pdf).
+  * Better parse-error messages.
+
+  ==Bugs/Issues==
+  * Can't have a breakline char -- it'll break things if it's really a string (e.g., Latex).
+  * There are known issues with using different widths for spcStr, argSepStr, etc.
+  * Parsing doesn't work if there is whitespace between relation or function
+    identifiers and parentheses.
+  * In ConfigHOL.hs, "in" is defined "in " to fix a pretty-printing bug.
+
+
+

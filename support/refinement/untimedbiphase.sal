@@ -1,0 +1,149 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown |@| cs.indiana.edu>         %%
+%% Lee Pike, Galois Connections, Inc. <leepike |@| galois.com>              %%
+%%                                                                          %%
+%% SAL 2.4 <http://fm.csl.sri.com/>                                         %%
+%%                                                                          %%
+%% Specification and verification of an untimed Biphase Mark Protocol.      %%
+%% Please see <http://www.cs.indiana.edu/~lepike/pub_pages/refinement.html> %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+untimedbiphase: CONTEXT =
+
+BEGIN
+
+STATE : TYPE = [0..1];
+
+
+  tclock : MODULE =
+    BEGIN
+       INPUT  rstate   : STATE
+       INPUT tstate   : STATE
+  
+    TRANSITION
+           [
+            tstate = rstate  --> 
+           ]
+     END;
+
+  tenv : MODULE = 
+     BEGIN
+       INPUT   tready : BOOLEAN
+       OUTPUT  tbit   : BOOLEAN
+
+       INITIALIZATION
+
+               tbit = TRUE;
+
+       TRANSITION
+       [
+           tready --> tbit' IN {TRUE, FALSE};
+       []  ELSE   --> 
+       ]
+     END;
+
+  tenc : MODULE = 
+     BEGIN
+       OUTPUT tdata       : BOOLEAN
+       OUTPUT tstate      : STATE
+       OUTPUT tready      : BOOLEAN
+       INPUT  tbit        : BOOLEAN
+       LOCAL  ttoggle     : BOOLEAN
+
+       INITIALIZATION
+
+         tdata  = TRUE;
+         tstate = 1;
+
+       DEFINITION
+
+         tready = tstate = 1;
+         ttoggle = NOT tdata;
+
+       TRANSITION
+       [
+          tstate = 1 --> 
+       [] tstate = 1 --> 
+                       tdata' = ttoggle;
+                       tstate' = 0;
+       [] tstate = 0 --> 
+                       tdata' = IF tbit THEN ttoggle ELSE tdata ENDIF;
+                       tstate' = 1;
+       ]
+  END;
+
+  tx : MODULE = tclock || tenc || tenv;
+
+  rclock : MODULE  =
+         BEGIN
+          INPUT  tstate     : STATE
+          INPUT rstate     : STATE
+
+         TRANSITION
+         [
+            rstate /= tstate --> 
+         ]
+         END;
+
+  rdec  : MODULE = 
+         BEGIN
+           INPUT  tdata     : BOOLEAN
+           OUTPUT rdata     : BOOLEAN
+           OUTPUT rstate    : STATE
+           OUTPUT rbit      : BOOLEAN
+
+       INITIALIZATION
+
+         rstate  = 1;
+         rdata = TRUE;
+         rbit  = TRUE;
+
+       TRANSITION
+          [
+             rstate = 1 --> 
+          [] rstate = 1 AND tdata /= rdata --> 
+                   rdata' = tdata;
+                   rstate' = 0;
+          []
+             rstate = 0  -->  
+                    rdata' = tdata;
+                    rbit' = rdata /= rdata';
+                    rstate' = 1;
+          ]
+       END;
+
+     rx : MODULE = rclock || rdec;
+
+     system : MODULE = rx [] tx;
+
+% Possible runs are (tstate,rstate) = (1,1) ... (0,1) ... (0,0) (1,0) (1,1) etc.
+%                                                               
+%                                      
+% where ... is stuttering.
+
+% The following theorems prove only these runs are possible:
+
+% sal-smc untimedbiphase.sal StateThm1
+% sal-smc untimedbiphase.sal StateThm2
+% sal-smc untimedbiphase.sal StateThm3
+% sal-smc untimedbiphase.sal StateThm4
+
+StateThm1 :  THEOREM system |- G((tstate=1 AND rstate=1) 
+                 => X((tstate=1 AND rstate=1) OR (tstate=0 AND rstate=1)));
+
+StateThm2 :  THEOREM system |- G((tstate=0 AND rstate=1) 
+                 => X((tstate=0 AND rstate=1) OR (tstate=0 AND rstate=0)));
+
+StateThm3 :  THEOREM system |- G((tstate=0 AND rstate=0) 
+                 => X((tstate=1 AND rstate=0)));
+
+StateThm4 :  THEOREM system |- G((tstate=1 AND rstate=0) 
+                 => X((tstate=1 AND rstate=1)));
+
+% sal-smc untimedbiphase.sal Untimed_BMP_Thm
+Untimed_BMP_Thm: THEOREM system |- G((tstate = 1 AND rstate = 0) => X(rbit = tbit));
+
+% sal-smc untimedbiphase.sal Liveness
+Liveness: THEOREM system |- G(F(rstate /= 1) => F(tstate = 1 AND rstate = 1));
+
+END

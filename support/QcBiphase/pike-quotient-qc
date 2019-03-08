@@ -1,0 +1,242 @@
+Sun Jan 18 18:04:36 PST 2009  leepike@gmail.com
+  * pike-quotient-qc
+
+New patches:
+
+[pike-quotient-qc
+leepike@gmail.com**20090119020436] {
+hunk ./Test/QuickCheck.hs 10
++  , quickCheckQuotient
++  , quickCheckQuotientWith
+hunk ./Test/QuickCheck/Test.hs 94
+-quickCheckWithResult args p =
++quickCheckWithResult args p = do 
++  (r,_) <- quickCheckWithResultState args p
++  return r
++
++-- | Tests a property, using test arguments, produces both a test result and state, and prints the results to 'stdout'.
++quickCheckWithResultState :: Testable prop => Args -> prop -> IO (Result, State)
++quickCheckWithResultState args p =
+hunk ./Test/QuickCheck/Test.hs 123
++-- | Tests a property, using test arguments, maxSuccessTests times regardless of failures.  Prints the percentage of failed tests to 'stdout'.
++quickCheckQuotientWith :: Testable prop => Args -> prop -> IO ()
++quickCheckQuotientWith args p = qcQuotientHlp totalTests 0
++  where qcQuotientHlp tests failed = do
++            (r, st) <- quickCheckWithResultState args {maxSuccess = tests} p
++            if tests - currTotal r st <= 0
++              then do putStrLn $
++                        "\nOut of " ++ show totalTests ++ " total tests, "
++                        ++ show (failed + failure r) 
++                        ++ " failed resulting in a failure rate of "
++                        ++ show (percent (currFailed r) totalTests) ++ "%."
++              else do qcQuotientHlp (tests - currTotal r st) (currFailed r)
++                          where currTotal r st = numSuccessTests st + failure r
++                                currFailed r = failed + failure r
++        totalTests = maxSuccess args
++        failure Failure {} = 1
++        failure _ = 0
++        percent a b = (fromIntegral 
++                       $ truncate (10000 * (fromIntegral a)/(fromIntegral b)))/100
++
++-- | Tests a property a fixed number of times and prints the percentage of failed tests to 'stdout'.
++quickCheckQuotient :: Testable prop => prop -> IO ()
++quickCheckQuotient p = quickCheckQuotientWith stdArgs p >> return ()
++
+hunk ./Test/QuickCheck/Test.hs 150
+-test :: State -> (StdGen -> Int -> Prop) -> IO Result
++test :: State -> (StdGen -> Int -> Prop) -> IO (Result, State)
+hunk ./Test/QuickCheck/Test.hs 156
+-doneTesting :: State -> (StdGen -> Int -> Prop) -> IO Result
++doneTesting :: State -> (StdGen -> Int -> Prop) -> IO (Result, State)
+hunk ./Test/QuickCheck/Test.hs 174
+-       return Success{ labels = summary st }
++       return (Success{ labels = summary st }, st)
+hunk ./Test/QuickCheck/Test.hs 176
+-       return NoExpectedFailure{ labels = summary st }
++       return (NoExpectedFailure{ labels = summary st }, st)
+hunk ./Test/QuickCheck/Test.hs 178
+-giveUp :: State -> (StdGen -> Int -> Prop) -> IO Result
++giveUp :: State -> (StdGen -> Int -> Prop) -> IO (Result, State)
+hunk ./Test/QuickCheck/Test.hs 188
+-     return GaveUp{ numTests = numSuccessTests st
+-                  , labels   = summary st
+-                  }
++     return ( GaveUp{ numTests = numSuccessTests st
++                    , labels   = summary st
++                    }
++            , st)
+hunk ./Test/QuickCheck/Test.hs 193
+-runATest :: State -> (StdGen -> Int -> Prop) -> IO Result
++runATest :: State -> (StdGen -> Int -> Prop) -> IO (Result, State)
+hunk ./Test/QuickCheck/Test.hs 234
+-              return Success{ labels = summary st }
++              return (Success{ labels = summary st }, st)
+hunk ./Test/QuickCheck/Test.hs 236
+-              return Failure{ usedSeed = randomSeed st -- correct! (this will be split first)
+-                            , usedSize = size
+-                            , reason   = P.reason res
+-                            , labels   = summary st
+-                            }
++              return ( Failure{ usedSeed = randomSeed st -- correct! (this will be split first)
++                              , usedSize = size
++                              , reason   = P.reason res
++                              , labels   = summary st
++                              }
++                     , st)
+}
+
+Context:
+
+[Make Gen an instance of Applicative
+Duncan Coutts <duncan@well-typed.com>**20080927224825] 
+[haddock tweak
+koen@chalmers.se**20080927193249] 
+[haddock is happier now?
+koen@chalmers.se**20080927180011] 
+[made haddock happy by removing documentation :-(
+koen@chalmers.se**20080927163813] 
+[small cabal-file changes
+koen@chalmers.se**20080927163745] 
+[fine tuning the Int generator
+koen@chalmers.se**20080924005052] 
+[making printable characters more likely, and equal characters more likely
+koen@chalmers.se**20080924004833] 
+[a small comment
+koen@chalmers.se**20080923225831] 
+[sample uses larger sizes
+koen@chalmers.se**20080923225806] 
+[itching on the Wadler-style Int Generator by default
+koen@chalmers.se**20080923225744] 
+[Added Wadler-style Int generator: for large sizes, the Ints become VERY large
+koen@chalmers.se**20080923225644] 
+[no warnings
+koen@chalmers.se**20080923191815] 
+[cosmetic changes, cleaning up, removed some deprecated functions, exported some forgotten functions
+koen@chalmers.se**20080923191602] 
+[Added test arguments and test results
+koen@chalmers.se**20080923191254] 
+[made Str and ranges visible
+koen@chalmers.se**20080923001708] 
+[made QuickCheck.Text visible
+koen@chalmers.se**20080923001529] 
+[Exported constructor for Positive
+koen@chalmers.se**20080422084127] 
+[Added instances for numeric types
+koen@chalmers.se**20080422083929] 
+[Added explanations to examples for quantifier modifiers
+koen@chalmers.se**20080422083858] 
+[Exporting Positive constructor
+koen@chalmers.se**20080422083757] 
+[Added a comment about the distribution of NonNegative
+koen@chalmers.se**20080414180452] 
+[ Re-introduced datatype for Positive, and added an explanation why
+koen@chalmers.se**20080414180031] 
+[Added dealing with control-C to the todo list
+koen@chalmers.se**20080414161508] 
+[Poly types are always positive and can be shrunk now
+koen@chalmers.se**20080414142402] 
+[Updated the module implementing showing and shrinking Functions
+koen@chalmers.se**20080414142323] 
+[Fixed a bug which introduced non-termination
+koen@chalmers.se**20080414140927] 
+[Restructured the TODO file
+koen@chalmers.se**20080414135151] 
+[Added implementing logical operators to the TODO list
+koen@chalmers.se**20080414134301] 
+[Added Poly to the Cabal file
+koen@chalmers.se**20080414125200] 
+[Added Poly
+koen@chalmers.se**20080412174429] 
+[Added a TODO list
+koen@chalmers.se**20080412151031] 
+[Added Haddoc comments
+koen@chalmers.se**20080412150006] 
+[Don't export Result from Test.QuickCheck.
+bjorn@bringert.net**20080412145030] 
+[Whitespace
+koen@chalmers.se**20080412143003] 
+[Added callbacks, and refactored the code accordingly
+koen@chalmers.se**20080412142934] 
+[Fixed some typos and added some markup to the documentation.
+Johan Tibell <johan.tibell@gmail.com>**20080412140634] 
+[Removed exports and infix declarations of removed functions.
+Johan Tibell <johan.tibell@gmail.com>**20080412140412] 
+[Some haddock comments for Test.QuickCheck.Arbitrary and Test.QuickCheck.Property.
+bjorn@bringert.net**20080412134315] 
+[Comment out the not yet finished .&&., forSeveral and forSeveralShrink.
+bjorn@bringert.net**20080412132042] 
+[We are using BSD3, not BSD4, license.
+bjorn@bringert.net**20080412132014] 
+[Split description into multiple paragraphs.
+bjorn@bringert.net**20080412131045] 
+[Updating cabal file, per new cabal syntax
+andy@monadgarden.com**20080304235024] 
+[update .cabal file
+Don Stewart <dons@galois.com>**20071023213938] 
+[Haddock tweak.
+bringert@cs.chalmers.se**20061126234053] 
+[Added a version of sampling that returns the test cases
+dpt@math.columbia.edu**20061126220704] 
+[Added LICENSE file.
+bringert@cs.chalmers.se**20061126232241] 
+[Fixed silly missed use of Positive constructor. Reported by Audrey Tang.
+bringert@cs.chalmers.se**20061124212824] 
+[Added README.
+bringert@cs.chalmers.se**20061123144917] 
+[Some haddock mark-up fixes to support haddock 0.7.
+bringert@cs.chalmers.se**20061123144831] 
+[Removed BUGS.
+bringert@cs.chalmers.se**20061123144204] 
+[Changed distribution of NonNegative to 1:5 for 0:everything else (was 9:1).
+bringert@cs.chalmers.se**20061120210126] 
+[Added NonZero and reimplemented Positive in terms of NonZero and NonNegative.
+bringert@cs.chalmers.se**20061120205417] 
+[Added BUGS file.
+bringert@cs.chalmers.se**20061120205405] 
+[Added Integral and Real instances for Positive and NonNegative.
+bringert@cs.chalmers.se**20061120204544] 
+[Some haddock tweaks.
+bringert@cs.chalmers.se**20061120112922] 
+[More haddock comments.
+bringert@cs.chalmers.se**20061120112532] 
+[More haddock and export list fixes.
+bringert@cs.chalmers.se**20061117201830] 
+[Added lots of Haddock comments and cleaned up export lists.
+bringert@cs.chalmers.se**20061117200346] 
+[Commented out generics import that Haddock choked on.
+bringert@cs.chalmers.se**20061117152818] 
+[Removed shrinkSub workarounds for old GHC bugs.
+bringert@cs.chalmers.se**20061117152630] 
+[Get rid of the last uses of modules from the haskell98 package, replace with base modules.
+bringert@cs.chalmers.se**20061117152400] 
+[Added Cabal build system.
+bringert@cs.chalmers.se**20061117152230] 
+[Removed Koen's CVS update script.
+bringert@cs.chalmers.se**20061117151819] 
+[Renamed modules to Test.QuickCheck.*.
+bringert@cs.chalmers.se**20061117151417] 
+[More fixes to get examples to compile.
+bringert@cs.chalmers.se**20061114164526] 
+[Fixed some imports in examples.
+bringert@cs.chalmers.se**20061114163012] 
+[Fixed Chalmers/QuickCheck/Monadic.hs to compile with GHC 6.6.
+bringert@cs.chalmers.se**20061114162953] 
+[Moved examples to a top-level directory.
+bringert@cs.chalmers.se**20061114160643] 
+[Fixed ExSet2 and ExLambda to compile with GHC 6.6.
+bringert@cs.chalmers.se**20061114160531] 
+[Comment out generics stuff to compile with GHC 6.6.
+bringert@cs.chalmers.se**20061114160414] 
+[Renamed QuickCheck to Chalmers to get module names right.
+bringert@cs.chalmers.se**20061114160326] 
+[Tailorization of QuickCheck
+tailor@momo.medic.chalmers.se**20061114165514
+ Import of the upstream sources from the repository
+ 
+  /users/cs/koen/CvsRoot
+ 
+ as of revision 2006-05-03 18:37:52 by koen
+ 
+] 
+Patch bundle hash:
+c51f5aadd52d9ebd0b1274f096d1fcf1f89dcfd7

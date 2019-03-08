@@ -1,0 +1,250 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Geoffrey Brown, Indiana University <geobrown @ cs.indiana.edu>           %%
+%% Lee Pike, Galois Connections, Inc. <leepike @ galois.com>                %%
+%% Copyright, 2005                                                          %%
+%%                                                                          %%
+%% SAL 2.3 (2.4 compatible)                                                 %%
+%%                                                                          %%
+%% Fully parameterized specification and verification of a synchronizer     %%
+%% circuit modeling metastability at various levels of refinement.          %%
+%%                                                                          %%
+%% A paper describing this specification, to be published in Designing      %%
+%% Correct Circuits (DCC), 2006, is available from the authors.             %%
+%%                                                                          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+sc: CONTEXT = BEGIN
+
+   TIME : TYPE = REAL;
+
+   RPERIOD  :  { x : TIME | 0 < x};
+   TPERIOD  :  { x : TIME | 0 < x};
+
+   TSETTLE  : { x : TIME | 0 <= x AND x < RPERIOD AND x < TPERIOD };
+   RSETTLE  : { x : TIME | 0 <= x AND x < RPERIOD AND x < TPERIOD };
+
+  time(t1 : TIME, t2: TIME): TIME =  IF t1 <= t2 THEN t1 ELSE t2 ENDIF;
+
+   rclock : MODULE =
+      BEGIN
+    
+         INPUT tclk     : TIME
+         OUTPUT rclk    : TIME
+
+      INITIALIZATION
+
+	 rclk  IN {x : TIME | 0 <= x };
+
+      TRANSITION
+      [
+         time(rclk,tclk) = rclk --> 
+                 rclk' IN { x : TIME |  time(rclk,tclk) + RPERIOD <= x }
+      ]
+      END;
+
+   tclock : MODULE =
+      BEGIN
+
+         INPUT  rclk    : TIME
+         OUTPUT tclk    : TIME
+
+      INITIALIZATION
+
+	 tclk  IN {x : TIME | 0 <= x };
+
+
+      TRANSITION
+       [
+        time(rclk,tclk) = tclk -->   
+	       tclk' IN { x : TIME |  time(rclk,tclk) + TPERIOD <= x}
+       ]
+       END;
+
+    FF : MODULE =
+       BEGIN
+
+	  INPUT  d : BOOLEAN
+          OUTPUT q : BOOLEAN
+	
+       INITIALIZATION
+
+          q = FALSE
+
+       TRANSITION
+           q' = d
+       END;
+
+    FFnd : MODULE = 
+       BEGIN
+
+         INPUT  d : BOOLEAN
+	 OUTPUT q : BOOLEAN
+
+       INITIALIZATION
+        
+          q = FALSE
+
+       TRANSITION
+
+          q' IN {TRUE, FALSE}
+
+       END;
+
+    LATCHnd : MODULE = 
+
+	BEGIN
+  	   INPUT  d : INTEGER
+           OUTPUT q : INTEGER
+
+        INITIALIZATION
+
+          q IN { x : INTEGER | TRUE };
+      
+        TRANSITION
+
+          q' IN { x : INTEGER | TRUE };
+   
+        END;
+
+     Constraint [ stime : REAL] : MODULE =
+       BEGIN
+	  INPUT  dclk : TIME
+          INPUT  qclk : TIME
+          INPUT  d    : BOOLEAN
+          INPUT  q    : BOOLEAN
+          OUTPUT ts   : TIME
+       
+	INITIALIZATION
+
+           ts = 0;
+
+        TRANSITION
+	[
+	   dclk /= dclk' AND (ts > time(qclk,dclk) OR q' = d) --> 
+	[] dclk = dclk'  AND d /= d'         --> ts' = time(qclk,dclk) + stime
+	[] dclk = dclk'  AND d = d'          --> 
+        ]
+        END;
+
+     LConstraint [ stime : REAL ] : MODULE =
+       BEGIN
+	  INPUT  dclk : TIME
+          INPUT  qclk : TIME
+          INPUT  d    : INTEGER
+          INPUT  q    : INTEGER
+          OUTPUT ts   : TIME
+       
+	INITIALIZATION
+
+           ts = 0;
+
+        TRANSITION
+	[
+	   dclk /= dclk' AND (ts > time(qclk,dclk) OR q' = d) --> 
+ 	[] dclk = dclk'  AND d /= d'   --> ts' = time(qclk,dclk) + stime
+	[] dclk = dclk'  AND d = d'          --> 
+        ]
+        END;
+
+    renv : MODULE =
+       BEGIN
+
+          INPUT rin : BOOLEAN
+          OUTPUT aout : BOOLEAN
+
+       INITIALIZATION
+
+          aout = FALSE
+
+       TRANSITION
+	   aout' IN {aout, rin}
+       END;
+
+    recv : MODULE =
+          (   (RENAME d TO rout, q TO r1 IN FFnd)
+           || (RENAME d TO r1, q TO rin IN FF)
+           || (RENAME d TO dout, q TO din IN LATCHnd)
+           || rclock 
+           || renv );
+
+    tenv : MODULE = 
+       BEGIN
+
+          INPUT ain : BOOLEAN
+          OUTPUT dout : INTEGER
+          OUTPUT rout : BOOLEAN
+
+       INITIALIZATION
+ 
+          dout IN { x : INTEGER | TRUE};
+          rout = FALSE
+
+       TRANSITION
+       [
+          TRUE        --> rout' = rout
+       [] rout = ain  --> rout' = NOT rout;
+                          dout' IN { x : INTEGER | TRUE};
+       ]
+     END;
+
+     tx : MODULE =  (  (RENAME d TO aout, q TO a1 IN FFnd)  
+                    || (RENAME d TO a1,  q TO ain IN FF)
+       	            || tclock 
+                    || tenv);
+
+   system : MODULE = (
+           (recv [] tx)
+           || (RENAME d TO rout, 
+	                    q TO r1, 
+	                    dclk TO rclk,
+                      qclk TO tclk,
+                      ts TO r1ts IN Constraint[TSETTLE])
+           || (RENAME d TO aout,
+                      q TO a1, 
+	                    dclk TO tclk,
+                      qclk TO rclk,
+                      ts TO a1ts IN Constraint[RSETTLE])
+           || (RENAME d TO dout, 
+                      q TO din, 
+	                    dclk TO rclk,
+                      qclk TO tclk,
+                      ts TO d1ts IN LConstraint[TSETTLE]));
+
+% sal-inf-bmc -d 1 -i -ice sc.sal l0
+
+  l0 : LEMMA system |- G((r1ts <= time(rclk,tclk) OR 
+                           (r1ts + TPERIOD - TSETTLE <= tclk)) AND
+                          (d1ts <= time(rclk,tclk) OR 
+                           (d1ts + TPERIOD - TSETTLE <= tclk)) AND
+	                 (a1ts <= time(rclk,tclk) OR 
+                         (a1ts + RPERIOD - RSETTLE <= rclk)) AND
+	                 (a1ts <= time(rclk,tclk) + RSETTLE) AND
+	                 (d1ts <= time(rclk,tclk) + TSETTLE) AND
+	                 (r1ts <= time(rclk,tclk) + TSETTLE ) AND
+			 (time(rclk,tclk) <= rclk) AND
+			 (time(rclk,tclk) <= tclk));
+
+% sal-inf-bmc -d 1  -i  -l l0 sc.sal l1
+
+  changing(i : BOOLEAN, o : BOOLEAN) : [0..1] =
+      IF (i /= o) THEN 1 ELSE 0 ENDIF;
+
+  l1 : LEMMA system |- G(changing(rout, r1) +
+			 changing(r1, rin) +
+       changing(rin,aout) +
+       changing(aout, a1) +
+			 changing(a1,ain) +
+			 changing(ain,NOT rout) +
+			 if (rout=r1 AND rclk < r1ts ) THEN 
+				1 ELSE 0 ENDIF +
+			 if (aout=a1 AND tclk < a1ts) THEN 
+				1 ELSE 0 ENDIF
+		      <= 1);
+
+% sal-inf-bmc -i -d 3 -l l0 -l l1 sc.sal t0
+
+   t0 : THEOREM system |- G((rin /= aout) => (din = dout));
+
+
+END

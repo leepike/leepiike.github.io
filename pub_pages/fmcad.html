@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Modeling Time-Triggered Protocols and Verifying Their Real-Time Schedules</title>
+</head>
+<body>
+<h1 style="text-align: center;">Modeling Time-Triggered Protocols and Verifying Their 
+Real-Time Schedules<br>
+</h1>
+<hr style="width: 100%; height: 2px;">
+
+<center>
+This paper won a "<b>Best Paper Award</b>" at <a 
+href="http://www.cs.utexas.edu/users/hunt/FMCAD/2007/">Formal Methods in Computer-Aided 
+Design</a>, 2007.<br>Here's a <a href="../pics/pikeFMCADaward.jpg">JPG</a> picture of Jason 
+Baumgartner (co-chair 
+of FMCAD) presenting the award to me.</center>
+
+<ul> <li>ABSTRACT:<br><br>
+<em>Time-triggered systems</em> are distributed systems in which the nodes are
+independently-clocked but maintain synchrony with one another.  Time-triggered
+protocols depend on the synchrony assumption the underlying system provides, and the
+protocols are often formally verified in an untimed or synchronous model based on
+this assumption.  An untimed model is simpler than a real-time model, but it
+abstracts away timing assumptions that must hold for the model to be valid.  In the
+first part of this paper, we extend previous work by Rushby [Rus, 1999] to prove,
+using mechanical theorem-proving, that for an arbitrary time-triggered protocol, its
+real-time implementation satisfies its untimed specification.  The second part of
+this paper shows how the combination of a bounded model-checker and a satisfiability
+modulo theories (SMT) solver can be used to prove that the timing characteristics of a
+hardware realization of a protocol satisfy the assumptions of the time-triggered
+model.  The upshot is a formally-verified connection between the untimed
+specification and the hardware realization of a time-triggered protocol with respect
+to its timing parameters.
+</li></ul>
+
+<ul><li>BIBTEX:<br>
+<pre>@inproceedings{pike:fmcad07,
+  author = {Lee Pike},
+  title = {Modeling Time-Triggered Protocols and Verifying Their Real-Time Schedules},
+  booktitle = {Proceedings of Formal Methods in Computer Aided Design (FMCAD'07)},
+  year = {2007},
+  pages = {231--238},
+  publisher = {IEEE},
+  note = {Best paper award.  Available at \url{http://www.cs.indiana.edu/~lepike/pub_pages/fmcad.html}.}
+}</pre> </li></ul>
+
+<ul><li>PAPER DOWNLOAD: <a href="../pubs/leepike-fmcad.pdf">pdf</a>
+</li></ul>
+
+<ul><li> SLIDES DOWNLOAD: <a href="../talks/fmcad-pike-talk.pdf">pdf</a>
+</li>
+</ul>
+
+<ul><li> FILES DOWNLOAD:<br><br>
+
+
+<ul>
+   <li><a href="../support/fmcad_time_triggered.dmp">Time-Triggered Model and 
+Theory Interpretation</a> (PVS dump file, consistent with PVS 4.0)</li> 
+  <li><a href="../support/spider_dist_diag.sal">Verified SPIDER Distributed Diagnosis Protocol 
+Schedule</a> (SAL file)</li>
+  <li><a href="../support/spider_clock_synch.sal">Verified SPIDER Clock Synchronization 
+Protocol 
+Schedule</a> (SAL file)</li>
+  <li><a href="../support/opt.sal">Optimized Schedule</a> (SAL file)</li></ul>
+  </ul>
+  </li>
+</li></ul>
+
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+

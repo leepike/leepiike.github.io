@@ -1,0 +1,121 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="content-type"
+ content="text/html; charset=ISO-8859-1">
+  <title>Formal Verification of Time-Triggered Systems</title>
+</head>
+<body>
+<h1 style="text-align: center;">Formal Verification of Time-Triggered Systems<br>
+</h1>
+<hr style="width: 100%; height: 2px;">
+<ul> <li> ABSTRACT:<br><br>
+Fault-tolerant real-time distributed control systems are being developed for
+next-generation aircraft and automobiles.  
+They employ numerous complex protocols; because their uses are safety-critical, the
+design and implementation of these protocols must be error-free.  The following
+modeling considerations make the formal verification of these protocols difficult:
+faults, real-time constraints, distributed control, nonfunctional behavioral
+requirements, and intricate protocol interactions.  We describe a methodology for the
+formal verification of <em>time-triggered systems</em>, a class of synchronized
+fault-tolerant control and communication architectures.<br><br>
+
+The methodology centers around the distinct timing assumptions made in time-triggered
+systems.  First, we describe a set of abstractions for specifying time-triggered
+protocols in an untimed synchronous model of computation that is particularly
+well-suited for mechanical theorem-proving.  The abstractions systematically abstract
+faults, data, communication, and fault-masking.  An untimed synchronous specification
+simplifies the specification and verification overhead, but a large semantic gap
+exists between the timing characteristics of an untimed protocol specification and
+its implementation.  We therefore extend previous work to formally demonstrate via
+mechanical theorem-proving that under certain assumptions, a simulation exists
+between a time-triggered implementation of a protocol and its untimed synchronous
+specification.  We then use a combination of bounded model-checking and automated
+solvers to verify that realized protocol schedules satisfy the necessary
+time-triggered assumptions.  Finally, some protocols do not satisfy the
+time-triggered model constraints due to the fact they execute when the system is
+unsynchronized, such as during startup or restart.  We also use bounded
+model-checking and automated solvers to verify explicit real-time models of such
+protocols.<br><br>
+
+The methodology is demonstrated by verifying NASA Langley's SPIDER fly-by-wire bus
+architecture.
+</li></ul>
+
+<ul><li> BIBTEX:<br>
+<pre>@PhdThesis{pike_diss,
+  author = {Lee Pike},
+  title  = {Formal Verification of Time-Triggered Systems},
+  school = {Indiana University},
+  year   = {2006},
+  note   = {Available at \url{http://www.cs.indiana.edu/~lepike/phd.html}}}
+</pre></li></ul>
+
+<ul><li> DISSERTATION DOWNLOAD: <a href="pubs/pike_diss.pdf">pdf</a><br>The dissertation is also available directly from Indiana University <a href="https://scholarworks.iu.edu/dspace/handle/2022/7310">here</a> under the <a href="http://creativecommons.org/licenses/by/3.0/">Creative Commons Attribution 3.0 Unported License</a>.</li>
+</ul>
+
+
+<ul><li> SLIDES DOWNLOAD: <a href="talks/defense.pdf">pdf</a></li></ul>
+
+<ul><li> FILES DOWNLOAD:<br><br>
+
+<ul>
+  <li><b>Chapter 3: Synchronous Protocol Verification</b> 
+    <ul><li><a href="support/abstractions.dmp">Abstractions Specification and Verification</a> 
+(PVS dump file)</li></ul>
+  <li><b>Chapter 4: Time-Triggered Protocol Verification</b>
+    <ul><a href=""></a></li></ul>
+
+   <ul><li><a href="support/time_triggered.dmp">Rushby's Original Theory Mended with an 
+Interpretation</a> (PVS dump file)</li> 
+   <li><a href="support/extended_time_triggered.dmp">Enhanced Time-Triggered Specification and 
+Interpretation</a> (PVS dump file)</li> 
+  <li><a href="support/spider_dist_diag.sal">Verified SPIDER Distributed Diagnosis Protocol 
+Schedule</a> (SAL file)</li>
+  <li><a href="support/spider_clock_synch.sal">Verified SPIDER Clock Synchronization Protocol 
+Schedule</a> (SAL file)</li>
+  <li><a href="support/opt.sal">Optimized Schedule</a> (SAL file)</li></ul>
+  <li><b>Chapter 5: Partially-Synchronous Protocol Verification</b>
+    <ul><li><a href="support/reint.sal">reintegration</a> (SAL file)</li>
+     <li><a href="support/prf.sh">reintegration proof script</a></li>
+    <li><a href="support/sta_tgc.sal">STA model 
+of the Train-Gate-Controller</a> (SAL file)</li>
+    <li><a href="support/sta_tgc_clockless.sal">clockless STA model of 
+the Train-Gate-Controller</a> (SAL file)</li></ul>
+  </ul>
+  </li>
+</li></ul>
+
+<ul><li> ADDENDUM:<br><br>
+Portions of Chapter 3 and most of Chapter 4 (and their supporting files) have been revised, 
+shortened, and small errors have been corrected in a FMCAD, 2007 paper.  The 
+paper and files are available <a 
+href="./pub_pages/fmcad.html">here</a>.  I suggest that paper be consulted in lieu of Chapter 
+4.
+
+</li></ul>
+
+<hr style="width: 100%; height: 2px;"><a href="../">
+<table style="text-align: left; width: 100%;" border="0" cellspacing="2"
+cellpadding="2">
+<tbody>
+<tr>
+<td style="vertical-align: top;"><a
+href="http://www.cs.indiana.edu/~lepike/">Lee 
+Pike
+(home)</a>
+</td>
+<td style="vertical-align: top; text-align: right;">
+<!--Email begin-->
+<script type="text/javascript"> emailE=('leepike@' + 'indiana.edu')
+document.write(
+'<A href="mailto:' + emailE + '">'
++ emailE + '<\/a>'
+)
+</script><!--Email end--></td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+
