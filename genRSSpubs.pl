@@ -2,7 +2,7 @@
 
 # From http://www.perl.com/pub/a/2001/11/15/creatingrss.html
 # Lee Pike
-# Generate RSS feed of publications from http://www.cs.indiana.edu/~lepike/
+# Generate RSS feed of publications from https://leepike.github.io//
 
 use strict;
 use LWP::Simple;
@@ -10,7 +10,7 @@ use HTML::TokeParser;
 use XML::RSS;
 
 # First - LWP::Simple.  Download the page using get();.
-my $content = get( "http://www.cs.indiana.edu/~lepike/" ) or die $!;
+my $content = get( "https://leepike.github.io//" ) or die $!;
 
 # Second - Create a TokeParser object, using our downloaded HTML.
 my $stream = HTML::TokeParser->new( \$content ) or die $!;
@@ -21,7 +21,7 @@ my $rss = XML::RSS->new( version => '0.9' );
 # Prep the RSS.
 $rss->channel(
 	title        => "Lee Pike's Papers",
-	link         => "http://www.cs.indiana.edu/~lepike/",
+	link         => "https://leepike.github.io//",
 	description  => "Research papers by Lee Pike.");
 
 # Declare variables.
@@ -54,7 +54,7 @@ while ( $tag = $stream->get_tag("span") ) {
 
 		# The <a> tags contain relative URLs - 
                 # we need to qualify these.
-		$url = "http://www.cs.indiana.edu/~lepike/$url";
+		$url = "https://leepike.github.io//$url";
 
 		# And that's it.  We can add our pair to the RSS channel. 
  		$rss->add_item(title => $headline, 
@@ -62,4 +62,4 @@ while ( $tag = $stream->get_tag("span") ) {
 	    }
     }
 
-$rss->save("/u/lepike/.hyplan/pike-pubs.rss");
+$rss->save("pike-pubs.rss");
